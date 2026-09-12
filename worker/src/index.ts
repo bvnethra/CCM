@@ -249,6 +249,7 @@ export default {
 
           const requestItems = parsed.data.items.map((itemInput, idx) => {
             const master = dbStore.itemMasters.find((i) => i.id === itemInput.itemId);
+            const isAvailable = master?.isAvailable !== false;
             return {
               id: `i-${Date.now()}-${idx}`,
               tenantId: user.tenantId,
@@ -260,13 +261,18 @@ export default {
               itemName: master?.itemName || 'Calibration Item',
               serialNumber: master?.serialNumber || 'SN-UNK',
               quantity: itemInput.quantity,
-              status: 'COLLECTED' as any,
+              status: isAvailable ? ('COLLECTED' as any) : ('ON_HOLD' as any),
               priority: itemInput.priority,
+              isAvailable,
+              availabilityStatus: isAvailable ? ('AVAILABLE' as any) : ('UNAVAILABLE' as any),
+              availabilityReason: isAvailable ? undefined : 'Item marked unavailable in Master Catalog - Exceptional Hold',
               isFaulty: false,
               isOutsourced: false,
               createdAt: new Date().toISOString(),
             };
           });
+
+          const hasUnavailableItems = requestItems.some((i) => !i.isAvailable);
 
           const newRequest = {
             id: reqId,
@@ -280,7 +286,7 @@ export default {
             collectionAgentName: user.fullName,
             collectionDate: parsed.data.collectionDate,
             priority: parsed.data.priority,
-            status: 'COLLECTED' as any,
+            status: hasUnavailableItems ? ('ON_HOLD' as any) : ('COLLECTED' as any),
             remarks: parsed.data.remarks,
             createdAt: new Date().toISOString(),
             items: requestItems,
@@ -657,7 +663,12 @@ export default {
         dbStore.deliveries.push(deliveryRecord);
 
         const req = dbStore.requests.find((r) => r.id === parsed.data.requestId);
-        if (req) req.status = 'COMPLETED';
+        if (req) {
+          const allItemsComplete = req.items?.every((item) =>
+            ['COMPLETED', 'DELIVERY_SIGNED', 'CALIBRATED'].includes(item.status) || item.isFaulty || item.isOutsourced
+          );
+          req.status = allItemsComplete ? 'COMPLETED' : 'PARTIALLY_COMPLETED';
+        }
 
         recordAuditLog(user, 'DELIVERY_CONFIRMED_COMPLETED', 'delivery', deliveryRecord.id, req?.requestNumber, null, deliveryRecord);
         return jsonResponse({ success: true, data: deliveryRecord });

@@ -105,6 +105,8 @@ export interface ItemMasterRecord {
   standardCost: number;
   calibrationFrequencyMonths: number;
   status: 'ACTIVE' | 'INACTIVE';
+  isAvailable: boolean;
+  availabilityReason?: string;
   createdAt: string;
 }
 
@@ -139,6 +141,9 @@ export interface RequestItemRecord {
   quantity: number;
   status: RequestStatus;
   priority: 'NORMAL' | 'HIGH' | 'URGENT';
+  isAvailable: boolean;
+  availabilityStatus?: 'AVAILABLE' | 'UNAVAILABLE' | 'ON_HOLD';
+  availabilityReason?: string;
   isFaulty: boolean;
   isOutsourced: boolean;
   outsourceVendorId?: string;

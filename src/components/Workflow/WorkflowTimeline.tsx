@@ -8,7 +8,7 @@ interface WorkflowTimelineProps {
 
 const STAGES: { key: RequestStatus; label: string }[] = [
   { key: 'CREATED', label: 'Created' },
-  { key: 'COLLECTED', label: 'Collected' },
+  { key: 'COLLECTED', label: 'Availability Check' },
   { key: 'LAB_QUEUE', label: 'Lab Queue' },
   { key: 'VERIFICATION', label: 'Verified' },
   { key: 'CALIBRATION', label: 'Calibration' },

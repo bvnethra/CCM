@@ -182,24 +182,43 @@ export const CollectionRequests: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-2">Select Items to Collect *</label>
-            <div className="max-h-40 overflow-y-auto border border-slate-800 rounded-lg p-3 bg-slate-950 space-y-2">
-              {itemMasters.map((item) => (
-                <label key={item.id} className="flex items-center gap-3 text-xs text-slate-300 cursor-pointer hover:text-white">
-                  <input
-                    type="checkbox"
-                    checked={selectedItemIds.includes(item.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) setSelectedItemIds([...selectedItemIds, item.id]);
-                      else setSelectedItemIds(selectedItemIds.filter((id) => id !== item.id));
-                    }}
-                    className="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-0"
-                  />
-                  <span>
-                    <strong className="text-sky-400 font-mono">{item.itemCode}</strong> - {item.itemName} (SN: {item.serialNumber})
-                  </span>
-                </label>
-              ))}
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-medium text-slate-300">Select Items & Availability Check *</label>
+              <span className="text-[10px] text-sky-400 font-mono">Server-Side Availability Validation Active</span>
+            </div>
+            <div className="max-h-48 overflow-y-auto border border-slate-800 rounded-lg p-3 bg-slate-950 space-y-2.5">
+              {itemMasters.map((item) => {
+                const isAvailable = item.isAvailable !== false;
+                return (
+                  <label key={item.id} className="flex items-center justify-between text-xs text-slate-300 cursor-pointer hover:bg-slate-900/60 p-1.5 rounded transition">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedItemIds.includes(item.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedItemIds([...selectedItemIds, item.id]);
+                          else setSelectedItemIds(selectedItemIds.filter((id) => id !== item.id));
+                        }}
+                        className="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-0"
+                      />
+                      <span>
+                        <strong className="text-sky-400 font-mono">{item.itemCode}</strong> - {item.itemName} (SN: <span className="font-mono text-slate-400">{item.serialNumber}</span>)
+                      </span>
+                    </div>
+                    <div>
+                      {isAvailable ? (
+                        <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/60 rounded">
+                          AVAILABLE: YES
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] font-bold bg-rose-950 text-rose-400 border border-rose-800/60 rounded">
+                          AVAILABLE: NO (Hold)
+                        </span>
+                      )}
+                    </div>
+                  </label>
+                );
+              })}
             </div>
           </div>
 
