@@ -156,65 +156,65 @@ export const CalibrationQueue: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-900/80 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
                 <tr>
-                  <th className="p-3.5">Request</th>
+                  <th className="p-3.5">Request No</th>
                   <th className="p-3.5">Client</th>
-                  <th className="p-3.5">Item Description</th>
-                  <th className="p-3.5">Status</th>
-                  <th className="p-3.5 text-right">Technician Actions</th>
+                  <th className="p-3.5">Overall Status</th>
+                  <th className="p-3.5">Items & Technician Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-slate-300">
                 {pendingCalRequests.map((req) => (
                   <tr key={req.id} className="hover:bg-slate-800/40 transition">
-                    <td className="p-3.5 font-mono font-bold text-sky-400">{req.requestNumber}</td>
-                    <td className="p-3.5 font-semibold text-slate-100">{req.clientName}</td>
-                    <td className="p-3.5">
-                      {req.items?.map((item) => (
-                        <div key={item.id} className="text-xs">
-                          <span className="font-semibold text-slate-200">{item.itemName}</span> (SN: <span className="font-mono text-slate-400">{item.serialNumber}</span>)
-                        </div>
-                      ))}
-                    </td>
-                    <td className="p-3.5">
+                    <td className="p-3.5 font-mono font-bold text-sky-400 align-top">{req.requestNumber}</td>
+                    <td className="p-3.5 font-semibold text-slate-100 align-top">{req.clientName}</td>
+                    <td className="p-3.5 align-top">
                       <span className="px-2.5 py-1 text-xs bg-sky-950 text-sky-300 border border-sky-800/60 rounded-full font-medium">
                         {req.status}
                       </span>
                     </td>
-                    <td className="p-3.5 text-right space-x-2">
-                      {req.items?.map((item) => (
-                        <div key={item.id} className="inline-flex gap-1.5">
-                          <button
-                            onClick={() => {
-                              setSelectedReq(req);
-                              setSelectedItem(item);
-                              setIsCalibModalOpen(true);
-                            }}
-                            className="px-2.5 py-1 text-xs bg-sky-600 hover:bg-sky-500 text-white rounded font-medium transition"
-                          >
-                            Perform Calibration
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedReq(req);
-                              setSelectedItem(item);
-                              setIsFaultyModalOpen(true);
-                            }}
-                            className="px-2 py-1 text-xs bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800 rounded font-medium transition"
-                          >
-                            Flag Faulty
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedReq(req);
-                              setSelectedItem(item);
-                              setIsOutsourceModalOpen(true);
-                            }}
-                            className="px-2 py-1 text-xs bg-orange-950 hover:bg-orange-900 text-orange-300 border border-orange-800 rounded font-medium transition"
-                          >
-                            Outsource
-                          </button>
-                        </div>
-                      ))}
+                    <td className="p-3.5">
+                      <div className="divide-y divide-slate-800/60 space-y-2">
+                        {req.items?.map((item) => (
+                          <div key={item.id} className="pt-2 first:pt-0 flex items-center justify-between gap-4">
+                            <div>
+                              <p className="font-semibold text-slate-200 text-xs">{item.itemName}</p>
+                              <p className="font-mono text-slate-400 text-[11px]">SN: {item.serialNumber}</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                onClick={() => {
+                                  setSelectedReq(req);
+                                  setSelectedItem(item);
+                                  setIsCalibModalOpen(true);
+                                }}
+                                className="px-2.5 py-1 text-xs bg-sky-600 hover:bg-sky-500 text-white rounded font-medium transition shadow-sm"
+                              >
+                                Perform Calibration
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedReq(req);
+                                  setSelectedItem(item);
+                                  setIsFaultyModalOpen(true);
+                                }}
+                                className="px-2 py-1 text-xs bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800/80 rounded font-medium transition"
+                              >
+                                Flag Faulty
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedReq(req);
+                                  setSelectedItem(item);
+                                  setIsOutsourceModalOpen(true);
+                                }}
+                                className="px-2 py-1 text-xs bg-orange-950 hover:bg-orange-900 text-orange-300 border border-orange-800/80 rounded font-medium transition"
+                              >
+                                Outsource
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </td>
                   </tr>
                 ))}
