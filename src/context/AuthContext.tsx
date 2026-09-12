@@ -16,27 +16,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>({
-    id: 'd0000000-0000-0000-0000-000000000001',
-    email: 'admin@alphametrology.com',
-    fullName: 'System Admin',
-    tenantId: 'a0000000-0000-0000-0000-000000000001',
-    tenantName: 'Alpha Metrology Solutions Ltd.',
-    organizationId: 'b0000000-0000-0000-0000-000000000001',
-    subOrgId: 'c0000000-0000-0000-0000-000000000001',
-    roles: ['Super Admin', 'Tenant Admin'],
-    permissions: [
-      'client.view', 'client.create', 'client.update', 'client.delete',
-      'vendor.view', 'vendor.create', 'vendor.update',
-      'item.view', 'item.create',
-      'request.create', 'request.view', 'request.update', 'request.verify',
-      'calibration.create', 'calibration.update',
-      'quotation.create', 'quotation.approve',
-      'invoice.create', 'invoice.view',
-      'dispatch.create', 'delivery.confirm', 'signature.capture', 'audit.view'
-    ],
-  });
-  const [token, setToken] = useState<string | null>('dev-token');
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [activeTenantId, setActiveTenantId] = useState<string>('a0000000-0000-0000-0000-000000000001');
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
