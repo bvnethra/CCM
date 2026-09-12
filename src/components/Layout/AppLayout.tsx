@@ -88,7 +88,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, activeTab, setAc
       : 'Beta Precision Calibrations';
 
   return (
-    <div className="flex h-screen bg-navy-950 overflow-hidden text-slate-100 font-sans">
+    <div className="flex h-screen bg-slate-950 overflow-hidden text-slate-100 font-sans">
       {/* LEFT SIDEBAR (Desktop & Tablet) */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between transition-transform duration-200 lg:static lg:translate-x-0 ${
         isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
