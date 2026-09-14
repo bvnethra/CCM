@@ -27,8 +27,8 @@ CREATE TABLE IF NOT EXISTS public.quotations (
     version_number INT NOT NULL DEFAULT 1,
     parent_quotation_id UUID REFERENCES public.quotations(id) ON DELETE SET NULL,
     
-    created_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
-    approved_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
+    approved_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
     approved_at TIMESTAMPTZ,
     
     sent_at TIMESTAMPTZ,
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS public.quotation_items (
     line_total DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
     
     override_reason TEXT,
-    override_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    override_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
     override_at TIMESTAMPTZ,
     
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -89,8 +89,8 @@ CREATE TABLE IF NOT EXISTS public.quotation_approvals (
     
     approval_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     
-    requested_by UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    approved_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    requested_by UUID NOT NULL REFERENCES public.user_profiles(id) ON DELETE CASCADE,
+    approved_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
     
     approval_remarks TEXT,
     

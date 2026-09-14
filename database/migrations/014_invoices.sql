@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS public.invoices (
     urgent_reason TEXT,
     remarks TEXT,
     
-    created_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
-    updated_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
+    updated_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
     
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

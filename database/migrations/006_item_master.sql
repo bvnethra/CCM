@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS public.item_masters (
     calibration_frequency INTEGER DEFAULT 12,
     calibration_frequency_unit VARCHAR(20) DEFAULT 'Months',
     status VARCHAR(20) NOT NULL DEFAULT 'active',
-    created_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT uq_item_masters_tenant_code UNIQUE (tenant_id, item_code),

@@ -17,10 +17,10 @@ CREATE TABLE IF NOT EXISTS service_requests (
     service_required BOOLEAN NOT NULL DEFAULT TRUE,
     estimated_service_cost NUMERIC NULL,
     service_remarks TEXT NULL,
-    created_by UUID NOT NULL REFERENCES users(id),
-    started_by UUID REFERENCES users(id) NULL,
+    created_by UUID NOT NULL REFERENCES public.user_profiles(id),
+    started_by UUID REFERENCES public.user_profiles(id) NULL,
     started_at TIMESTAMPTZ NULL,
-    completed_by UUID REFERENCES users(id) NULL,
+    completed_by UUID REFERENCES public.user_profiles(id) NULL,
     completed_at TIMESTAMPTZ NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()

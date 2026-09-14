@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.verifications (
     tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     request_id UUID NOT NULL REFERENCES public.calibration_requests(id) ON DELETE CASCADE,
     request_item_id UUID NOT NULL REFERENCES public.request_items(id) ON DELETE CASCADE,
-    verified_by UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+    verified_by UUID NOT NULL REFERENCES public.user_profiles(id) ON DELETE RESTRICT,
     verified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     
     -- Item identity check
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS public.documents (
     storage_reference TEXT NOT NULL,
     mandatory BOOLEAN NOT NULL DEFAULT false,
     
-    uploaded_by UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+    uploaded_by UUID NOT NULL REFERENCES public.user_profiles(id) ON DELETE RESTRICT,
     uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     version INTEGER NOT NULL DEFAULT 1 CHECK (version >= 1),
     

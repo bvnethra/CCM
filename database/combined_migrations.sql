@@ -1185,7 +1185,7 @@ CREATE TABLE IF NOT EXISTS public.item_masters (
     calibration_frequency INTEGER DEFAULT 12,
     calibration_frequency_unit VARCHAR(20) DEFAULT 'Months',
     status VARCHAR(20) NOT NULL DEFAULT 'active',
-    created_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT uq_item_masters_tenant_code UNIQUE (tenant_id, item_code),
@@ -1407,12 +1407,12 @@ CREATE TABLE IF NOT EXISTS public.calibration_requests (
     sub_org_id UUID REFERENCES public.sub_organizations(id) ON DELETE SET NULL,
     request_number VARCHAR(50) NOT NULL,
     client_id UUID NOT NULL REFERENCES public.clients(id) ON DELETE RESTRICT,
-    collection_agent_id UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+    collection_agent_id UUID NOT NULL REFERENCES public.user_profiles(id) ON DELETE RESTRICT,
     collection_date DATE NOT NULL DEFAULT CURRENT_DATE,
     priority VARCHAR(20) NOT NULL DEFAULT 'NORMAL',
     status VARCHAR(30) NOT NULL DEFAULT 'CREATED',
     remarks TEXT,
-    created_by UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+    created_by UUID NOT NULL REFERENCES public.user_profiles(id) ON DELETE RESTRICT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT uq_calibration_requests_tenant_number UNIQUE (tenant_id, request_number),
@@ -1430,7 +1430,7 @@ CREATE TABLE IF NOT EXISTS public.request_items (
     requested_quantity INTEGER NOT NULL DEFAULT 1,
     item_available VARCHAR(10) NOT NULL DEFAULT 'YES',
     availability_remarks TEXT,
-    availability_checked_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    availability_checked_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
     availability_checked_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -1657,8 +1657,8 @@ CREATE TABLE IF NOT EXISTS public.lab_request_assignments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     request_id UUID NOT NULL REFERENCES public.calibration_requests(id) ON DELETE CASCADE,
-    assigned_to UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
-    assigned_by UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+    assigned_to UUID NOT NULL REFERENCES public.user_profiles(id) ON DELETE RESTRICT,
+    assigned_by UUID NOT NULL REFERENCES public.user_profiles(id) ON DELETE RESTRICT,
     assigned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     remarks TEXT,
@@ -1680,7 +1680,7 @@ CREATE TABLE IF NOT EXISTS public.request_status_history (
     request_id UUID NOT NULL REFERENCES public.calibration_requests(id) ON DELETE CASCADE,
     previous_status VARCHAR(30),
     new_status VARCHAR(30) NOT NULL,
-    changed_by UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+    changed_by UUID NOT NULL REFERENCES public.user_profiles(id) ON DELETE RESTRICT,
     changed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     remarks TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -1802,7 +1802,7 @@ CREATE TABLE IF NOT EXISTS public.verifications (
     tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     request_id UUID NOT NULL REFERENCES public.calibration_requests(id) ON DELETE CASCADE,
     request_item_id UUID NOT NULL REFERENCES public.request_items(id) ON DELETE CASCADE,
-    verified_by UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+    verified_by UUID NOT NULL REFERENCES public.user_profiles(id) ON DELETE RESTRICT,
     verified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     
     -- Item identity check
@@ -1852,7 +1852,7 @@ CREATE TABLE IF NOT EXISTS public.documents (
     storage_reference TEXT NOT NULL,
     mandatory BOOLEAN NOT NULL DEFAULT false,
     
-    uploaded_by UUID NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
+    uploaded_by UUID NOT NULL REFERENCES public.user_profiles(id) ON DELETE RESTRICT,
     uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     version INTEGER NOT NULL DEFAULT 1 CHECK (version >= 1),
     
@@ -1952,7 +1952,7 @@ CREATE TABLE IF NOT EXISTS calibrations (
     request_id UUID NOT NULL REFERENCES calibration_requests(id) ON DELETE CASCADE,
     request_item_id UUID NOT NULL REFERENCES request_items(id) ON DELETE CASCADE,
     item_id UUID NOT NULL REFERENCES item_masters(id) ON DELETE CASCADE,
-    calibrated_by UUID NOT NULL REFERENCES users(id),
+    calibrated_by UUID NOT NULL REFERENCES public.user_profiles(id),
     calibration_started_at TIMESTAMPTZ DEFAULT NOW(),
     calibration_completed_at TIMESTAMPTZ NULL,
     calibration_method TEXT NULL,
@@ -1966,7 +1966,7 @@ CREATE TABLE IF NOT EXISTS calibrations (
     calibration_frequency_unit VARCHAR NULL CHECK (calibration_frequency_unit IN ('MONTHS', 'YEARS', 'DAYS') OR calibration_frequency_unit IS NULL),
     frequency_override BOOLEAN DEFAULT FALSE,
     frequency_override_reason TEXT NULL,
-    frequency_overridden_by UUID REFERENCES users(id) NULL,
+    frequency_overridden_by UUID REFERENCES public.user_profiles(id) NULL,
     frequency_overridden_at TIMESTAMPTZ NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -2003,7 +2003,7 @@ CREATE TABLE IF NOT EXISTS certificates (
     file_name VARCHAR NOT NULL,
     storage_reference TEXT NOT NULL,
     version INTEGER NOT NULL DEFAULT 1,
-    generated_by UUID NOT NULL REFERENCES users(id),
+    generated_by UUID NOT NULL REFERENCES public.user_profiles(id),
     generated_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -2069,10 +2069,10 @@ CREATE TABLE IF NOT EXISTS service_requests (
     service_required BOOLEAN NOT NULL DEFAULT TRUE,
     estimated_service_cost NUMERIC NULL,
     service_remarks TEXT NULL,
-    created_by UUID NOT NULL REFERENCES users(id),
-    started_by UUID REFERENCES users(id) NULL,
+    created_by UUID NOT NULL REFERENCES public.user_profiles(id),
+    started_by UUID REFERENCES public.user_profiles(id) NULL,
     started_at TIMESTAMPTZ NULL,
-    completed_by UUID REFERENCES users(id) NULL,
+    completed_by UUID REFERENCES public.user_profiles(id) NULL,
     completed_at TIMESTAMPTZ NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -2145,12 +2145,12 @@ CREATE TABLE IF NOT EXISTS vendor_outsource_requests (
     vendor_reference VARCHAR(100),
     expected_return_date DATE,
     
-    created_by UUID NOT NULL REFERENCES users(id),
+    created_by UUID NOT NULL REFERENCES public.user_profiles(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
     returned_at TIMESTAMPTZ,
-    received_by UUID REFERENCES users(id),
+    received_by UUID REFERENCES public.user_profiles(id),
     remarks TEXT
 );
 
@@ -2183,8 +2183,8 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
     tax_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
     total_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
     
-    created_by UUID NOT NULL REFERENCES users(id),
-    issued_by UUID REFERENCES users(id),
+    created_by UUID NOT NULL REFERENCES public.user_profiles(id),
+    issued_by UUID REFERENCES public.user_profiles(id),
     issued_at TIMESTAMPTZ,
     
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -2227,7 +2227,7 @@ CREATE TABLE IF NOT EXISTS vendor_outsource_movements (
     carrier VARCHAR(100),
     
     movement_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    performed_by UUID NOT NULL REFERENCES users(id),
+    performed_by UUID NOT NULL REFERENCES public.user_profiles(id),
     
     remarks TEXT,
     document_id UUID,
@@ -2253,7 +2253,7 @@ CREATE TABLE IF NOT EXISTS vendor_calibration_records (
     report_document_id UUID,
     remarks TEXT,
     
-    created_by UUID NOT NULL REFERENCES users(id),
+    created_by UUID NOT NULL REFERENCES public.user_profiles(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -2315,8 +2315,8 @@ CREATE TABLE IF NOT EXISTS public.quotations (
     version_number INT NOT NULL DEFAULT 1,
     parent_quotation_id UUID REFERENCES public.quotations(id) ON DELETE SET NULL,
     
-    created_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
-    approved_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
+    approved_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
     approved_at TIMESTAMPTZ,
     
     sent_at TIMESTAMPTZ,
@@ -2362,7 +2362,7 @@ CREATE TABLE IF NOT EXISTS public.quotation_items (
     line_total DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
     
     override_reason TEXT,
-    override_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    override_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
     override_at TIMESTAMPTZ,
     
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -2377,8 +2377,8 @@ CREATE TABLE IF NOT EXISTS public.quotation_approvals (
     
     approval_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     
-    requested_by UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    approved_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    requested_by UUID NOT NULL REFERENCES public.user_profiles(id) ON DELETE CASCADE,
+    approved_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
     
     approval_remarks TEXT,
     
@@ -2459,8 +2459,8 @@ CREATE TABLE IF NOT EXISTS public.invoices (
     urgent_reason TEXT,
     remarks TEXT,
     
-    created_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
-    updated_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
+    updated_by UUID REFERENCES public.user_profiles(id) ON DELETE SET NULL,
     
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

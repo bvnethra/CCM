@@ -20,12 +20,12 @@ CREATE TABLE IF NOT EXISTS vendor_outsource_requests (
     vendor_reference VARCHAR(100),
     expected_return_date DATE,
     
-    created_by UUID NOT NULL REFERENCES users(id),
+    created_by UUID NOT NULL REFERENCES public.user_profiles(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
     returned_at TIMESTAMPTZ,
-    received_by UUID REFERENCES users(id),
+    received_by UUID REFERENCES public.user_profiles(id),
     remarks TEXT
 );
 
@@ -58,8 +58,8 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
     tax_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
     total_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
     
-    created_by UUID NOT NULL REFERENCES users(id),
-    issued_by UUID REFERENCES users(id),
+    created_by UUID NOT NULL REFERENCES public.user_profiles(id),
+    issued_by UUID REFERENCES public.user_profiles(id),
     issued_at TIMESTAMPTZ,
     
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS vendor_outsource_movements (
     carrier VARCHAR(100),
     
     movement_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    performed_by UUID NOT NULL REFERENCES users(id),
+    performed_by UUID NOT NULL REFERENCES public.user_profiles(id),
     
     remarks TEXT,
     document_id UUID,
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS vendor_calibration_records (
     report_document_id UUID,
     remarks TEXT,
     
-    created_by UUID NOT NULL REFERENCES users(id),
+    created_by UUID NOT NULL REFERENCES public.user_profiles(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
