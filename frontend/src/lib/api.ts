@@ -6496,6 +6496,79 @@ export const apiClient = {
     }));
   },
 
+  async holdRequest(id: string, tenantId: string, holdReason: string): Promise<any> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/calibration-requests/${id}/hold`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+        body: JSON.stringify({ hold_reason: holdReason }),
+      });
+      return await res.json();
+    }
+    const req = memoryDb.calibrationRequests.find((r) => r.id === id);
+    if (req) {
+      req.status = 'ON_HOLD';
+      (req as any).hold_reason = holdReason;
+    }
+    return { success: true, message: 'Request placed on hold' };
+  },
+
+  async resumeRequest(id: string, tenantId: string, remarks?: string): Promise<any> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/calibration-requests/${id}/resume`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+        body: JSON.stringify({ remarks }),
+      });
+      return await res.json();
+    }
+    const req = memoryDb.calibrationRequests.find((r) => r.id === id);
+    if (req) {
+      req.status = 'LAB_QUEUE';
+      (req as any).hold_reason = null;
+    }
+    return { success: true, message: 'Request resumed' };
+  },
+
+  async cancelRequest(id: string, tenantId: string, cancellationReason: string): Promise<any> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/calibration-requests/${id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+        body: JSON.stringify({ cancellation_reason: cancellationReason }),
+      });
+      return await res.json();
+    }
+    const req = memoryDb.calibrationRequests.find((r) => r.id === id);
+    if (req) {
+      req.status = 'CANCELLED';
+      (req as any).cancellation_reason = cancellationReason;
+    }
+    return { success: true, message: 'Request cancelled' };
+  },
+
+  async syncOfflineDrafts(tenantId: string, drafts: any[]): Promise<any> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/calibration-requests/sync-offline-drafts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+        body: JSON.stringify({ drafts }),
+      });
+      return await res.json();
+    }
+    return { success: true, synced_count: drafts.length, failed_count: 0, results: drafts.map((d) => ({ draft_id: d.draft_id, sync_status: 'SYNCED' })) };
+  },
+
+  async getDataIntegrity(tenantId: string): Promise<any> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/system/data-integrity?tenant_id=${tenantId}`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      return await res.json();
+    }
+    return { success: true, data: { checked_at: new Date().toISOString(), issues_found: 0, categories: {} } };
+  },
+
 };
 
 export const api = apiClient;

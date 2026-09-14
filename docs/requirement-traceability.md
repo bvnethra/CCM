@@ -1,0 +1,28 @@
+# Requirement Traceability Matrix (Steps 1–19)
+
+| Requirement ID | Module / Feature Area | Implementation Summary | Status | Technical / Architectural Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| **REQ-01** | Multi-tenant Architecture & RLS | PostgreSQL schemas, RLS policies, tenant isolation via `tenant_id` header and JWT claims. | **COMPLETED** | Enforced at database and domain worker level. |
+| **REQ-02** | RBAC & Dynamic Permissions | Dynamic permission engine with custom roles, seed permission mappings, and Hono middleware (`requirePermission`). | **COMPLETED** | Dynamic permission lookup without hardcoded role strings. |
+| **REQ-03** | Client Master Management | Full CRUD, client code generation, commercial terms, contact details, and client details roll-up. | **COMPLETED** | Includes Step 18 Commercial History Roll-Up tab. |
+| **REQ-04** | Vendor Master Management | Vendor intake, qualification status, capability matrix, and internal outsource history roll-up. | **COMPLETED** | Includes Step 18 Internal Outsource History tab. |
+| **REQ-05** | Item Master Configuration | Equipment master catalog, standard calibration costs, default frequencies, and serial number tracking. | **COMPLETED** | Serves as source of truth for standard pricing. |
+| **REQ-06** | Request Lifecycle & Intake | Calibration Request creation, priority tagging, collection agent assignment, and line item intake. | **COMPLETED** | Supports Mode A (Request-based) and Mode B (Standalone conversion). |
+| **REQ-07** | Centralized Lab Queue | Technician assignment, queue filtering, intake confirmation, and status transition to LAB_QUEUE. | **COMPLETED** | Worker endpoint `POST /calibration-requests/:id/lab-queue`. |
+| **REQ-08** | Physical Verification | Intake inspection, serial number matching, condition assessment, discrepancy recording, and proof attachments. | **COMPLETED** | Verification queue and verification result tracking. |
+| **REQ-09** | Calibration Operations | Technical workspace, environmental parameters, measurement readings, uncertainty calculation, and PDF certificates. | **COMPLETED** | R2 storage integration for generated certificates. |
+| **REQ-10** | Faulty Item & Service Flow | Service requirement identification, repair cost estimation, client approval gate, and re-calibration flow. | **COMPLETED** | Supported exception branch in request progress matrix. |
+| **REQ-11** | Vendor Outsourcing & POs | Vendor PO generation, external dispatch, vendor result capture, return verification, and reintegration. | **COMPLETED** | Strictly hides vendor outsourcing cost from client views. |
+| **REQ-12** | Request-Based Quotations | Quotation generation from request items, line item pricing, Lab Approver gate, PDF creation via Puppeteer. | **COMPLETED** | Mode A flow with mandatory Lab Approver approval. |
+| **REQ-13** | Invoice Management | Standard, Partial, and Urgent invoicing with due date controls and invoice eligibility validation. | **COMPLETED** | Enhanced in Step 19 with `ITEMS_AND_INVOICE` and `INVOICE_ONLY` modes. |
+| **REQ-14** | Client Formal Signature | Public client approval portal, HTML5 canvas digital signature, OTP verification, and legal signature certificate. | **COMPLETED** | Public secure token route `/client-sign/invoice/:ref`. |
+| **REQ-15** | Logistics Dispatch & Delivery | Dispatch parcel creation, carrier tracking, physical delivery confirmation, and recipient signature intake. | **COMPLETED** | Complete logistics tracking flow. |
+| **REQ-16** | End-to-End Completion Engine | Server-side completion engine verifying item-level prerequisite stages before marking parent request COMPLETED. | **COMPLETED** | Supports `COMPLETED` and `PARTIALLY_COMPLETED` states. |
+| **REQ-17** | Production Hardening | Environment variables, CORS headers, RLS audit, index tuning, bundle minification, and system documentation. | **COMPLETED** | Production ready architecture. |
+| **REQ-18** | Standalone Quotations & History | Standalone quotation workflow (`request_id = NULL`), client quotation history, item price overrides, and due-list direct actions. | **COMPLETED** | Supports Mode B, history roll-ups, and quotation-to-request conversion. |
+| **REQ-19.1** | GMS Status Reconciliation | Centralized status definitions (`statusEngine.ts`) across Requests, Items, Calibration, Service, Quotations, Invoices, and Logistics. | **COMPLETED** | Server transition validator returning HTTP 409 on invalid jumps. |
+| **REQ-19.2** | Offline Collection Tolerance | Local Storage draft queue (`ccm_offline_drafts`), online/offline indicator, and batch synchronization endpoint (`/sync-offline-drafts`). | **COMPLETED** | Offline tolerance for Collection Agents with server validation. |
+| **REQ-19.3** | Invoice Modes & Traceability | Dual invoice modes: `ITEMS_AND_INVOICE` (line item level traceability) vs `INVOICE_ONLY` (header & summary without dummy items). | **COMPLETED** | Full support in frontend form and worker endpoints. |
+| **REQ-19.4** | Hold, Resume & Safe Cancel | Controlled hold/resume with mandatory reasons (`POST /requests/:id/hold`, `/resume`) and safe post-dispatch cancellation blocking. | **COMPLETED** | Preserves status history and audit events. |
+| **REQ-19.5** | Live Workflow Progress Tracker | Interactive 9-stage visual progress tracker bar on Request Details page generated from actual status. | **COMPLETED** | Shows active, completed, hold, and exception states. |
+| **REQ-19.6** | System Data Integrity Diagnostic | Admin diagnostic endpoint (`GET /api/system/data-integrity`) checking orphan records, tenant mismatches, and duplicates. | **COMPLETED** | Audit-logged diagnostic utility. |

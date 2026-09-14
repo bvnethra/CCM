@@ -21,12 +21,13 @@ invoiceWorker.get('/', async (c) => {
   const tenantId = getTenantId(c);
   const status = c.req.query('status');
   const invoiceType = c.req.query('invoice_type');
+  const invoiceMode = c.req.query('invoice_mode');
   const search = c.req.query('search');
 
   return c.json({
     success: true,
     data: [],
-    meta: { tenant_id: tenantId, status, invoice_type: invoiceType, search },
+    meta: { tenant_id: tenantId, status, invoice_type: invoiceType, invoice_mode: invoiceMode, search },
   });
 });
 
@@ -57,7 +58,7 @@ invoiceWorker.get('/:id', async (c) => {
   });
 });
 
-// 4. POST /api/v1/invoices - Create invoice (Standard / Partial / Urgent)
+// 4. POST /api/v1/invoices - Create invoice (ITEMS_AND_INVOICE or INVOICE_ONLY)
 invoiceWorker.post('/', async (c) => {
   const tenantId = getTenantId(c);
   const body = await c.req.json();
@@ -67,14 +68,32 @@ invoiceWorker.post('/', async (c) => {
     return c.json({ success: false, errors: parsed.error.format() }, 400);
   }
 
-  if (parsed.data.invoice_type === 'URGENT' && (!parsed.data.urgent_reason || !parsed.data.urgent_reason.trim())) {
-    return c.json({ success: false, error: 'Mandatory urgent reason is required for URGENT invoice creation' }, 422);
+  const { invoice_mode, invoice_type, items, urgent_reason } = parsed.data;
+
+  // Validation rules for ITEMS_AND_INVOICE vs INVOICE_ONLY
+  if (invoice_mode === 'ITEMS_AND_INVOICE' && (!items || items.length === 0)) {
+    return c.json({
+      success: false,
+      error: 'Mode ITEMS_AND_INVOICE requires at least one invoice line item.',
+    }, 422);
+  }
+
+  if (invoice_type === 'URGENT' && (!urgent_reason || !urgent_reason.trim())) {
+    return c.json({
+      success: false,
+      error: 'Mandatory urgent reason is required for URGENT invoice creation',
+    }, 422);
   }
 
   return c.json({
     success: true,
-    message: `Invoice created successfully as DRAFT (${parsed.data.invoice_type})`,
-    data: { tenant_id: tenantId, ...parsed.data },
+    message: `Invoice created successfully as DRAFT (${invoice_mode} / ${invoice_type})`,
+    data: {
+      tenant_id: tenantId,
+      ...parsed.data,
+      status: 'DRAFT',
+      created_at: new Date().toISOString(),
+    },
   });
 });
 
@@ -111,5 +130,3 @@ invoiceWorker.post('/:id/cancel', async (c) => {
     data: { id, status: 'CANCELLED', cancellation_reason: parsed.data.cancellation_reason },
   });
 });
-
-export default invoiceWorker;

@@ -10,9 +10,13 @@ import {
   Package,
   FileCheck,
   Truck,
+  PauseCircle,
+  PlayCircle,
+  XCircle,
+  AlertOctagon,
 } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
-import { api } from '../../lib/api';
+import apiClient, { api } from '../../lib/api';
 import { CalibrationRequest, RequestTimelineEvent, ItemProgressRow } from '../../types';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -36,6 +40,13 @@ export const RequestDetailsPage: React.FC<RequestDetailsPageProps> = ({
   const [matrix, setMatrix] = useState<ItemProgressRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
+
+  // Modals for Step 19 Actions
+  const [showHoldModal, setShowHoldModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [holdReason, setHoldReason] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -72,6 +83,103 @@ export const RequestDetailsPage: React.FC<RequestDetailsPageProps> = ({
     }
   };
 
+  const handleHoldRequest = async () => {
+    if (!holdReason.trim()) {
+      alert('Please enter a mandatory hold reason.');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const res = await apiClient.holdRequest(requestId, tenantId, holdReason);
+      if (res.success) {
+        setShowHoldModal(false);
+        setHoldReason('');
+        await loadData();
+      } else {
+        alert(res.error || 'Failed to place request on hold');
+      }
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleResumeRequest = async () => {
+    if (!confirm('Are you sure you want to resume this request from hold?')) return;
+    setActionLoading(true);
+    try {
+      const res = await apiClient.resumeRequest(requestId, tenantId, 'Resumed by user action');
+      if (res.success) {
+        await loadData();
+      } else {
+        alert(res.error || 'Failed to resume request');
+      }
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancelRequest = async () => {
+    if (!cancelReason.trim()) {
+      alert('Please enter a mandatory cancellation reason.');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const res = await apiClient.cancelRequest(requestId, tenantId, cancelReason);
+      if (res.success) {
+        setShowCancelModal(false);
+        setCancelReason('');
+        await loadData();
+      } else {
+        alert(res.error || 'Failed to cancel request');
+      }
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Workflow Stages Definition for Tracker
+  const stages = [
+    { label: 'Collection', key: 'COLLECTED' },
+    { label: 'Lab Queue', key: 'LAB_QUEUE' },
+    { label: 'Verification', key: 'VERIFICATION' },
+    { label: 'Calibration', key: 'CALIBRATION' },
+    { label: 'Commercial', key: 'QUOTATION' },
+    { label: 'Client Sign', key: 'CLIENT_SIGN' },
+    { label: 'Dispatch', key: 'DISPATCHED' },
+    { label: 'Delivery', key: 'DELIVERY_SIGNED' },
+    { label: 'Completion', key: 'COMPLETED' },
+  ];
+
+  const getStageIndex = (status: string) => {
+    const map: Record<string, number> = {
+      CREATED: 0,
+      COLLECTED: 0,
+      LAB_QUEUE: 1,
+      VERIFICATION: 2,
+      VERIFIED: 2,
+      CALIBRATION: 3,
+      CALIBRATED: 3,
+      QUOTATION: 4,
+      APPROVAL: 4,
+      INVOICE: 4,
+      CLIENT_SIGN: 5,
+      READY_TO_DISPATCH: 6,
+      DISPATCHED: 6,
+      CLIENT_RECEIVED: 7,
+      DELIVERY_SIGNED: 7,
+      PARTIALLY_COMPLETED: 8,
+      COMPLETED: 8,
+    };
+    return map[status] !== undefined ? map[status] : 0;
+  };
+
   if (loading || !request) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -83,8 +191,12 @@ export const RequestDetailsPage: React.FC<RequestDetailsPageProps> = ({
     );
   }
 
+  const currentStageIdx = getStageIndex(request.status);
+  const isHold = request.status === 'ON_HOLD';
+  const isCancelled = request.status === 'CANCELLED';
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto p-2">
       {/* Top Header Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
@@ -102,7 +214,9 @@ export const RequestDetailsPage: React.FC<RequestDetailsPageProps> = ({
               variant={
                 request.status === 'COMPLETED'
                   ? 'success'
-                  : request.status === 'PARTIALLY_COMPLETED'
+                  : isCancelled
+                  ? 'destructive'
+                  : isHold
                   ? 'warning'
                   : 'info'
               }
@@ -115,7 +229,41 @@ export const RequestDetailsPage: React.FC<RequestDetailsPageProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {isHold ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResumeRequest}
+              disabled={actionLoading}
+              className="border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100"
+            >
+              <PlayCircle className="w-4 h-4 mr-1" /> Resume Request
+            </Button>
+          ) : !isCancelled && request.status !== 'COMPLETED' ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowHoldModal(true)}
+              disabled={actionLoading}
+              className="border-slate-300 text-slate-700"
+            >
+              <PauseCircle className="w-4 h-4 mr-1 text-amber-600" /> Hold Request
+            </Button>
+          ) : null}
+
+          {!isCancelled && request.status !== 'COMPLETED' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCancelModal(true)}
+              disabled={actionLoading}
+              className="border-red-200 text-red-700 bg-red-50 hover:bg-red-100"
+            >
+              <XCircle className="w-4 h-4 mr-1 text-red-600" /> Cancel Request
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -124,15 +272,53 @@ export const RequestDetailsPage: React.FC<RequestDetailsPageProps> = ({
             className="border-slate-300 text-slate-700 hover:bg-slate-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${evaluating ? 'animate-spin' : ''}`} />
-            Evaluate Completion (Server)
+            Evaluate Completion
           </Button>
           <Button
             variant="primary"
             size="sm"
             onClick={() => onNavigate('dispatches')}
           >
-            <Truck className="w-3.5 h-3.5 mr-1.5" /> Go to Dispatches
+            <Truck className="w-3.5 h-3.5 mr-1.5" /> Dispatches
           </Button>
+        </div>
+      </div>
+
+      {/* STEP 19 WORKFLOW TRACKER VISUALIZATION */}
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Live Workflow Progress Tracker</h3>
+          {isHold && <span className="text-xs font-semibold text-amber-600 flex items-center gap-1"><AlertOctagon className="w-3.5 h-3.5" /> Request ON HOLD</span>}
+          {isCancelled && <span className="text-xs font-semibold text-red-600 flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> Request CANCELLED</span>}
+        </div>
+
+        <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-9 gap-2">
+          {stages.map((stg, idx) => {
+            const isPassed = idx < currentStageIdx;
+            const isCurrent = idx === currentStageIdx && !isCancelled;
+            return (
+              <div
+                key={stg.key}
+                className={`p-2.5 rounded-lg border text-center transition-all ${
+                  isCancelled
+                    ? 'bg-slate-50 border-slate-200 text-slate-400 opacity-60'
+                    : isCurrent
+                    ? isHold
+                      ? 'bg-amber-50 border-amber-400 text-amber-900 ring-2 ring-amber-200 font-bold'
+                      : 'bg-blue-50 border-blue-500 text-blue-900 ring-2 ring-blue-200 font-bold'
+                    : isPassed
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                    : 'bg-slate-50 border-slate-200 text-slate-400'
+                }`}
+              >
+                <div className="text-[10px] font-mono mb-1 text-slate-400">0{idx + 1}</div>
+                <div className="text-xs font-semibold truncate">{stg.label}</div>
+                <div className="mt-1 text-[10px]">
+                  {isPassed ? '✓ Done' : isCurrent ? (isHold ? 'Paused' : 'Active') : 'Pending'}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -274,6 +460,50 @@ export const RequestDetailsPage: React.FC<RequestDetailsPageProps> = ({
           </div>
         </div>
       </div>
+
+      {/* HOLD REQUEST MODAL */}
+      {showHoldModal && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full space-y-4 shadow-xl">
+            <h3 className="text-base font-bold text-slate-900">Place Request on Hold</h3>
+            <p className="text-xs text-slate-600">Provide a mandatory reason for placing this calibration request on hold.</p>
+            <textarea
+              className="w-full border rounded-md p-2 text-xs h-24 focus:ring-1 focus:ring-blue-500"
+              placeholder="E.g., Client clarification required regarding measurement range..."
+              value={holdReason}
+              onChange={(e) => setHoldReason(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowHoldModal(false)}>Cancel</Button>
+              <Button variant="primary" size="sm" onClick={handleHoldRequest} disabled={actionLoading}>
+                Confirm Hold
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CANCEL REQUEST MODAL */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full space-y-4 shadow-xl">
+            <h3 className="text-base font-bold text-red-900">Cancel Calibration Request</h3>
+            <p className="text-xs text-slate-600">This action will cancel the request. Mandatory cancellation reason required.</p>
+            <textarea
+              className="w-full border rounded-md p-2 text-xs h-24 focus:ring-1 focus:ring-red-500"
+              placeholder="E.g., Client cancelled purchase order..."
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowCancelModal(false)}>Back</Button>
+              <Button variant="destructive" size="sm" onClick={handleCancelRequest} disabled={actionLoading}>
+                Cancel Request
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

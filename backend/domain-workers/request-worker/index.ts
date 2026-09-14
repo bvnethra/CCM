@@ -9,6 +9,12 @@ import {
 } from './schemas';
 import { requirePermission } from '../../middleware/rbac';
 import { logAuditEvent } from '../../shared/audit';
+import {
+  validateRequestTransition,
+  validateRequestItemTransition,
+  logStatusHistory,
+  RequestStatus,
+} from '../common/statusEngine';
 
 type AppVariables = {
   user: AuthenticatedUser;
@@ -478,6 +484,17 @@ requestWorker.patch('/calibration-requests/:id/status', async (c) => {
     return c.json({ success: false, error: 'Calibration request not found or access denied' }, 404);
   }
 
+  // Validate server-side status transition rules (Step 19)
+  const isValidTransition = validateRequestTransition(existing.status as RequestStatus, targetStatus as RequestStatus);
+  if (!isValidTransition) {
+    return c.json({
+      success: false,
+      error: `INVALID_STATUS_TRANSITION: Cannot transition request from ${existing.status} to ${targetStatus}`,
+      current_status: existing.status,
+      target_status: targetStatus,
+    }, 409);
+  }
+
   const { data: updated, error: updateErr } = await supabase
     .from('calibration_requests')
     .update({
@@ -492,15 +509,15 @@ requestWorker.patch('/calibration-requests/:id/status', async (c) => {
     return c.json({ success: false, error: updateErr.message }, 500);
   }
 
-  // Record into request_status_history
-  await supabase.from('request_status_history').insert({
+  // Record into request_status_history via centralized statusEngine
+  await logStatusHistory(supabase, {
     tenant_id: user.tenantId,
     request_id: id,
     previous_status: existing.status,
     new_status: targetStatus,
     changed_by: user.userId,
-    changed_at: new Date().toISOString(),
     remarks: parsed.data.remarks || null,
+    source_module: 'request-worker',
   });
 
   await logAuditEvent(supabase, {
@@ -660,3 +677,360 @@ requestWorker.get('/calibration-requests/:id/items', requirePermission('request.
 
   return c.json({ success: true, data: data || [] });
 });
+
+// ==========================================
+// 7. STEP 19: HOLD REQUEST
+// ==========================================
+requestWorker.post('/calibration-requests/:id/hold', requirePermission('request.hold'), async (c) => {
+  const user = c.get('user');
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => ({}));
+  const holdReason = body.hold_reason || body.reason;
+
+  if (!holdReason) {
+    return c.json({ success: false, error: 'Mandatory hold reason is required' }, 400);
+  }
+
+  const supabase = getSupabase(c);
+  const { data: request, error: fetchErr } = await supabase
+    .from('calibration_requests')
+    .select('*')
+    .eq('id', id)
+    .eq('tenant_id', user.tenantId)
+    .single();
+
+  if (fetchErr || !request) {
+    return c.json({ success: false, error: 'Request not found or access denied' }, 404);
+  }
+
+  if (request.status === 'COMPLETED' || request.status === 'CANCELLED') {
+    return c.json({ success: false, error: `Cannot place request in ${request.status} status on hold` }, 400);
+  }
+
+  const timestamp = new Date().toISOString();
+  const previousStatus = request.status;
+
+  const { data: updated, error: updateErr } = await supabase
+    .from('calibration_requests')
+    .update({
+      status: 'ON_HOLD',
+      hold_reason: holdReason,
+      held_by: user.userId,
+      held_at: timestamp,
+      updated_at: timestamp,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (updateErr) {
+    return c.json({ success: false, error: updateErr.message }, 500);
+  }
+
+  await logStatusHistory(supabase, {
+    tenant_id: user.tenantId,
+    request_id: id,
+    previous_status: previousStatus,
+    new_status: 'ON_HOLD',
+    changed_by: user.userId,
+    remarks: `Request placed on hold: ${holdReason}`,
+    source_module: 'request-worker',
+  });
+
+  await logAuditEvent(supabase, {
+    tenantId: user.tenantId,
+    userId: user.userId,
+    action: 'REQUEST_ON_HOLD',
+    resourceType: 'calibration_requests',
+    resourceId: id,
+    oldValues: { status: previousStatus },
+    newValues: { status: 'ON_HOLD', hold_reason: holdReason },
+  });
+
+  return c.json({ success: true, data: updated, message: 'Calibration request placed on hold.' });
+});
+
+// ==========================================
+// 8. STEP 19: RESUME REQUEST
+// ==========================================
+requestWorker.post('/calibration-requests/:id/resume', requirePermission('request.resume'), async (c) => {
+  const user = c.get('user');
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => ({}));
+  const resumeRemarks = body.remarks || 'Request resumed from hold state';
+
+  const supabase = getSupabase(c);
+  const { data: request, error: fetchErr } = await supabase
+    .from('calibration_requests')
+    .select('*')
+    .eq('id', id)
+    .eq('tenant_id', user.tenantId)
+    .single();
+
+  if (fetchErr || !request) {
+    return c.json({ success: false, error: 'Request not found or access denied' }, 404);
+  }
+
+  if (request.status !== 'ON_HOLD') {
+    return c.json({ success: false, error: 'Only requests currently ON_HOLD can be resumed' }, 400);
+  }
+
+  const targetStatus = 'LAB_QUEUE'; // Default resumed stage
+  const timestamp = new Date().toISOString();
+
+  const { data: updated, error: updateErr } = await supabase
+    .from('calibration_requests')
+    .update({
+      status: targetStatus,
+      hold_reason: null,
+      held_by: null,
+      held_at: null,
+      updated_at: timestamp,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (updateErr) {
+    return c.json({ success: false, error: updateErr.message }, 500);
+  }
+
+  await logStatusHistory(supabase, {
+    tenant_id: user.tenantId,
+    request_id: id,
+    previous_status: 'ON_HOLD',
+    new_status: targetStatus,
+    changed_by: user.userId,
+    remarks: resumeRemarks,
+    source_module: 'request-worker',
+  });
+
+  await logAuditEvent(supabase, {
+    tenantId: user.tenantId,
+    userId: user.userId,
+    action: 'REQUEST_RESUMED',
+    resourceType: 'calibration_requests',
+    resourceId: id,
+    oldValues: { status: 'ON_HOLD', hold_reason: request.hold_reason },
+    newValues: { status: targetStatus },
+  });
+
+  return c.json({ success: true, data: updated, message: 'Request resumed successfully.' });
+});
+
+// ==========================================
+// 9. STEP 19: CANCEL REQUEST (SAFE CANCELLATION)
+// ==========================================
+requestWorker.post('/calibration-requests/:id/cancel', requirePermission('request.cancel'), async (c) => {
+  const user = c.get('user');
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => ({}));
+  const cancellationReason = body.cancellation_reason || body.reason;
+
+  if (!cancellationReason) {
+    return c.json({ success: false, error: 'Mandatory cancellation reason is required' }, 400);
+  }
+
+  const supabase = getSupabase(c);
+  const { data: request, error: fetchErr } = await supabase
+    .from('calibration_requests')
+    .select('*')
+    .eq('id', id)
+    .eq('tenant_id', user.tenantId)
+    .single();
+
+  if (fetchErr || !request) {
+    return c.json({ success: false, error: 'Request not found or access denied' }, 404);
+  }
+
+  // Safe cancellation rule: Cannot cancel after irreversible stages (DISPATCHED, CLIENT_RECEIVED, DELIVERY_SIGNED, COMPLETED)
+  const irreversibleStates = ['DISPATCHED', 'CLIENT_RECEIVED', 'DELIVERY_SIGNED', 'COMPLETED'];
+  if (irreversibleStates.includes(request.status)) {
+    return c.json({
+      success: false,
+      error: `Cannot cancel request in ${request.status} stage after dispatch or completion`,
+    }, 400);
+  }
+
+  const timestamp = new Date().toISOString();
+  const previousStatus = request.status;
+
+  const { data: updated, error: updateErr } = await supabase
+    .from('calibration_requests')
+    .update({
+      status: 'CANCELLED',
+      cancellation_reason: cancellationReason,
+      cancelled_by: user.userId,
+      cancelled_at: timestamp,
+      updated_at: timestamp,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (updateErr) {
+    return c.json({ success: false, error: updateErr.message }, 500);
+  }
+
+  await logStatusHistory(supabase, {
+    tenant_id: user.tenantId,
+    request_id: id,
+    previous_status: previousStatus,
+    new_status: 'CANCELLED',
+    changed_by: user.userId,
+    remarks: `Request cancelled: ${cancellationReason}`,
+    source_module: 'request-worker',
+  });
+
+  await logAuditEvent(supabase, {
+    tenantId: user.tenantId,
+    userId: user.userId,
+    action: 'REQUEST_CANCELLED',
+    resourceType: 'calibration_requests',
+    resourceId: id,
+    oldValues: { status: previousStatus },
+    newValues: { status: 'CANCELLED', cancellation_reason: cancellationReason },
+  });
+
+  return c.json({ success: true, data: updated, message: 'Request cancelled successfully.' });
+});
+
+// ==========================================
+// 10. STEP 19: OFFLINE DRAFTS BATCH SYNCHRONIZATION
+// ==========================================
+requestWorker.post('/calibration-requests/sync-offline-drafts', requirePermission('request.create'), async (c) => {
+  const user = c.get('user');
+  const body = await c.req.json();
+  const drafts = body.drafts || [];
+
+  if (!Array.isArray(drafts) || drafts.length === 0) {
+    return c.json({ success: false, error: 'No offline drafts provided for synchronization' }, 400);
+  }
+
+  const supabase = getSupabase(c);
+  const syncResults: any[] = [];
+
+  for (const draft of drafts) {
+    try {
+      // 1. Revalidate Client ownership and accessibility
+      const { data: client, error: clientErr } = await supabase
+        .from('clients')
+        .select('id, client_name')
+        .eq('id', draft.client_id)
+        .eq('tenant_id', user.tenantId)
+        .single();
+
+      if (clientErr || !client) {
+        syncResults.push({
+          draft_id: draft.draft_id,
+          sync_status: 'SYNC_FAILED',
+          error: `Client validation failed or client not accessible for tenant.`,
+        });
+        continue;
+      }
+
+      // 2. Validate Items
+      const draftItems = draft.items || [];
+      if (draftItems.length === 0) {
+        syncResults.push({
+          draft_id: draft.draft_id,
+          sync_status: 'SYNC_FAILED',
+          error: `Request draft must contain at least one line item.`,
+        });
+        continue;
+      }
+
+      // 3. Generate Request Number
+      const year = new Date().getFullYear();
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      const requestNumber = `REQ-${year}-${randomSuffix}`;
+      const now = new Date().toISOString();
+
+      // 4. Create Calibration Request in DB
+      const { data: createdReq, error: createErr } = await supabase
+        .from('calibration_requests')
+        .insert({
+          tenant_id: user.tenantId,
+          organization_id: user.organizationId,
+          sub_org_id: user.subOrgId,
+          request_number: requestNumber,
+          client_id: draft.client_id,
+          collection_agent_id: user.userId,
+          collection_date: draft.collection_date || now,
+          priority: draft.priority || 'NORMAL',
+          status: 'CREATED',
+          remarks: draft.remarks ? `[Synced from Offline Draft]: ${draft.remarks}` : '[Synced from Offline Draft]',
+          created_by: user.userId,
+          created_at: now,
+          updated_at: now,
+        })
+        .select()
+        .single();
+
+      if (createErr || !createdReq) {
+        syncResults.push({
+          draft_id: draft.draft_id,
+          sync_status: 'SYNC_FAILED',
+          error: createErr?.message || 'Failed to create request record.',
+        });
+        continue;
+      }
+
+      // 5. Insert Request Line Items
+      const itemsToInsert = draftItems.map((item: any) => ({
+        tenant_id: user.tenantId,
+        request_id: createdReq.id,
+        item_id: item.item_id,
+        requested_quantity: item.requested_quantity || 1,
+        item_available: item.item_available || 'YES',
+        availability_remarks: item.availability_remarks || null,
+        created_at: now,
+        updated_at: now,
+      }));
+
+      await supabase.from('request_items').insert(itemsToInsert);
+
+      // Record initial status history
+      await logStatusHistory(supabase, {
+        tenant_id: user.tenantId,
+        request_id: createdReq.id,
+        previous_status: 'LOCAL_DRAFT',
+        new_status: 'CREATED',
+        changed_by: user.userId,
+        remarks: 'Synchronized offline collection draft to server',
+        source_module: 'request-worker-offline-sync',
+      });
+
+      await logAuditEvent(supabase, {
+        tenantId: user.tenantId,
+        userId: user.userId,
+        action: 'OFFLINE_SYNC_COMPLETED',
+        resourceType: 'calibration_requests',
+        resourceId: createdReq.id,
+        oldValues: { draft_id: draft.draft_id },
+        newValues: { request_number: requestNumber, status: 'CREATED' },
+      });
+
+      syncResults.push({
+        draft_id: draft.draft_id,
+        request_id: createdReq.id,
+        request_number: requestNumber,
+        sync_status: 'SYNCED',
+      });
+    } catch (err: any) {
+      syncResults.push({
+        draft_id: draft.draft_id,
+        sync_status: 'SYNC_FAILED',
+        error: err.message || 'Unexpected server error during offline draft synchronization',
+      });
+    }
+  }
+
+  return c.json({
+    success: true,
+    results: syncResults,
+    synced_count: syncResults.filter((r) => r.sync_status === 'SYNCED').length,
+    failed_count: syncResults.filter((r) => r.sync_status === 'SYNC_FAILED').length,
+  });
+});
+

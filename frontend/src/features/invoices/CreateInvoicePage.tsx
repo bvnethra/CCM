@@ -48,6 +48,7 @@ export const CreateInvoicePage: React.FC<CreateInvoicePageProps> = ({
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [selectedQuotationId, setSelectedQuotationId] = useState('');
 
+  const [invoiceMode, setInvoiceMode] = useState<'ITEMS_AND_INVOICE' | 'INVOICE_ONLY'>('ITEMS_AND_INVOICE');
   const [invoiceType, setInvoiceType] = useState<InvoiceType>('STANDARD');
   const [urgentReason, setUrgentReason] = useState('');
   const [dueDate, setDueDate] = useState(() => {
@@ -56,6 +57,7 @@ export const CreateInvoicePage: React.FC<CreateInvoicePageProps> = ({
     return d.toISOString().split('T')[0];
   });
   const [remarks, setRemarks] = useState('');
+  const [customTotalAmount, setCustomTotalAmount] = useState<number>(0);
 
   const [itemRows, setItemRows] = useState<QuotationItemRow[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
@@ -170,8 +172,8 @@ export const CreateInvoicePage: React.FC<CreateInvoicePageProps> = ({
       return;
     }
 
-    if (selectedItems.length === 0) {
-      alert('Please select at least one eligible quotation item for the invoice');
+    if (invoiceMode === 'ITEMS_AND_INVOICE' && selectedItems.length === 0) {
+      alert('Please select at least one eligible quotation item for ITEMS_AND_INVOICE mode');
       return;
     }
 
@@ -184,19 +186,23 @@ export const CreateInvoicePage: React.FC<CreateInvoicePageProps> = ({
     try {
       const payload = {
         quotation_id: selectedQuotationId,
+        invoice_mode: invoiceMode,
         invoice_type: invoiceType,
         due_date: dueDate,
         currency: 'INR',
         urgent_reason: invoiceType === 'URGENT' ? urgentReason : undefined,
         remarks,
-        items: selectedItems.map((i) => ({
+        subtotal: invoiceMode === 'INVOICE_ONLY' ? (customTotalAmount || selectedQuotation?.total_amount || 0) : subtotal,
+        tax_amount: invoiceMode === 'INVOICE_ONLY' ? 0 : totalTax,
+        total_amount: invoiceMode === 'INVOICE_ONLY' ? (customTotalAmount || selectedQuotation?.total_amount || 0) : grandTotal,
+        items: invoiceMode === 'ITEMS_AND_INVOICE' ? selectedItems.map((i) => ({
           request_item_id: i.request_item_id,
           item_id: i.item_id,
           quotation_item_id: i.quotation_item_id,
           quantity: i.quantity,
           unit_price: i.unit_price,
           tax_rate: i.tax_rate,
-        })),
+        })) : [],
       };
 
       const created = await api.createInvoice(activeTenant.id, payload);
@@ -283,14 +289,66 @@ export const CreateInvoicePage: React.FC<CreateInvoicePageProps> = ({
         )}
       </Card>
 
-      {/* SECTION 2: Processing Mode */}
+      {/* SECTION 2: Invoice Mode & Processing Type */}
       <Card className="p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wider text-slate-500 border-b pb-2 flex items-center gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 border-b pb-2 flex items-center gap-2">
           <Layers className="w-4 h-4 text-indigo-600" />
-          SECTION 2 — Invoice Processing Mode
+          SECTION 2 — Invoice Mode & Commercial Type
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Invoice Mode Selector */}
+        <div className="space-y-2">
+          <label className="block text-xs font-semibold text-slate-700">Invoice Granularity Mode</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div
+              onClick={() => setInvoiceMode('ITEMS_AND_INVOICE')}
+              className={`p-3.5 rounded-lg border-2 cursor-pointer transition-all ${
+                invoiceMode === 'ITEMS_AND_INVOICE' ? 'border-blue-600 bg-blue-50/50 text-blue-900 font-semibold' : 'border-slate-200 text-slate-700'
+              }`}
+            >
+              <div className="flex items-center gap-2 text-sm">
+                <input type="radio" name="invMode" checked={invoiceMode === 'ITEMS_AND_INVOICE'} readOnly />
+                ITEMS + INVOICE MODE
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Maintains full item-level traceability. Line items correspond directly to request & quotation items.
+              </p>
+            </div>
+
+            <div
+              onClick={() => setInvoiceMode('INVOICE_ONLY')}
+              className={`p-3.5 rounded-lg border-2 cursor-pointer transition-all ${
+                invoiceMode === 'INVOICE_ONLY' ? 'border-emerald-600 bg-emerald-50/50 text-emerald-900 font-semibold' : 'border-slate-200 text-slate-700'
+              }`}
+            >
+              <div className="flex items-center gap-2 text-sm">
+                <input type="radio" name="invMode" checked={invoiceMode === 'INVOICE_ONLY'} readOnly />
+                INVOICE-ONLY MODE
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Generates commercial invoice header & total amount without forcing item-level line items.
+              </p>
+            </div>
+          </div>
+
+          {invoiceMode === 'INVOICE_ONLY' && (
+            <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 mt-2">
+              <label className="block text-xs font-semibold text-emerald-900 mb-1">
+                Custom Header Total Amount (₹) — Optional (Defaults to Quotation Total ₹{selectedQuotation?.total_amount || 0})
+              </label>
+              <Input
+                type="number"
+                min={0}
+                placeholder={`Default: ${selectedQuotation?.total_amount || 0}`}
+                value={customTotalAmount || ''}
+                onChange={(e) => setCustomTotalAmount(parseFloat(e.target.value) || 0)}
+                className="bg-white text-xs font-mono"
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t pt-4">
           <label
             onClick={() => setInvoiceType('STANDARD')}
             className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${

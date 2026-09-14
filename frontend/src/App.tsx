@@ -37,6 +37,7 @@ import { DispatchListPage } from './features/dispatch/DispatchListPage';
 import { CreateDispatchPage } from './features/dispatch/CreateDispatchPage';
 import { DispatchDetailsPage } from './features/dispatch/DispatchDetailsPage';
 import { RequestDetailsPage } from './features/requests/RequestDetailsPage';
+import { CollectionAgentPage } from './features/collection/CollectionAgentPage';
 import { ExceptionCenterPage } from './features/operations/ExceptionCenterPage';
 import { AuditLogsPage } from './features/audit/AuditLogsPage';
 import { ReportsPage } from './features/reports/ReportsPage';
@@ -299,10 +300,11 @@ const AppContent: React.FC = () => {
         {currentView === 'calibration-request-detail' && (
           <RequestDetailsPage
             requestId={selectedRequestId || ''}
-            onBack={() => setCurrentView('calibration-requests')}
+            onBack={() => setCurrentView('requests')}
             onNavigate={(route) => setCurrentView(route)}
           />
         )}
+        {currentView === 'collection' && <CollectionAgentPage />}
         {currentView === 'operations-exceptions' && (
           <ExceptionCenterPage
             onNavigate={(route) => setCurrentView(route)}

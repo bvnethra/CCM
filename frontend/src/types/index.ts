@@ -230,7 +230,33 @@ export interface AuditLog {
 }
 
 export type CalibrationRequestPriority = 'NORMAL' | 'URGENT';
-export type CalibrationRequestStatus = 'CREATED' | 'COLLECTED' | 'LAB_QUEUE' | 'VERIFICATION' | 'VERIFIED' | 'ON_HOLD' | 'CANCELLED' | 'DISPATCHED' | 'PARTIALLY_COMPLETED' | 'COMPLETED';
+export type CalibrationRequestStatus =
+  | 'CREATED'
+  | 'COLLECTED'
+  | 'LAB_QUEUE'
+  | 'VERIFICATION'
+  | 'VERIFIED'
+  | 'CALIBRATION'
+  | 'CALIBRATED'
+  | 'QUOTATION'
+  | 'APPROVAL'
+  | 'INVOICE'
+  | 'CLIENT_SIGN'
+  | 'READY_TO_DISPATCH'
+  | 'DISPATCHED'
+  | 'CLIENT_RECEIVED'
+  | 'DELIVERY_SIGNED'
+  | 'PARTIALLY_COMPLETED'
+  | 'COMPLETED'
+  | 'ON_HOLD'
+  | 'DISCREPANCY'
+  | 'FAULTY'
+  | 'OUTSOURCED'
+  | 'REJECTED'
+  | 'CANCELLED';
+
+export type InvoiceMode = 'ITEMS_AND_INVOICE' | 'INVOICE_ONLY';
+export type OfflineSyncStatus = 'LOCAL_DRAFT' | 'SYNC_PENDING' | 'SYNCED' | 'SYNC_FAILED';
 export type ItemAvailability = 'YES' | 'NO';
 export type LabAssignmentStatus = 'ACTIVE' | 'REASSIGNED' | 'COMPLETED';
 

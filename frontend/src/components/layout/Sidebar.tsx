@@ -83,6 +83,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           badge: 'Step 6',
         },
         {
+          id: 'collection',
+          label: 'Field Collection',
+          icon: <Truck className="w-4 h-4" />,
+          badge: 'Step 19',
+        },
+        {
           id: 'lab-queue',
           label: 'Lab Queue & Intake',
           icon: <FlaskConical className="w-4 h-4" />,
