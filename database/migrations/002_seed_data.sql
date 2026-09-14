@@ -27,21 +27,21 @@ ON CONFLICT (tenant_id, code) DO NOTHING;
 -- 3. SEED SUB-ORGANIZATIONS (Child of Acme Aerospace Division)
 INSERT INTO public.sub_organizations (id, tenant_id, organization_id, name, code, status)
 VALUES
-    ('sub11111-aaaa-4111-aaaa-111111111111', '11111111-1111-4111-a111-111111111111', 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa', 'Pressure & Vacuum Testing Lab', 'ACME-AERO-PVT', 'active'),
-    ('sub11112-aaaa-4111-aaaa-111111111112', '11111111-1111-4111-a111-111111111111', 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa', 'Avionics & RF Standard Lab', 'ACME-AERO-RF', 'active')
+    ('e1111111-aaaa-4111-aaaa-111111111111', '11111111-1111-4111-a111-111111111111', 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa', 'Pressure & Vacuum Testing Lab', 'ACME-AERO-PVT', 'active'),
+    ('e1111112-aaaa-4111-aaaa-111111111112', '11111111-1111-4111-a111-111111111111', 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa', 'Avionics & RF Standard Lab', 'ACME-AERO-RF', 'active')
 ON CONFLICT (organization_id, code) DO NOTHING;
 
 -- 3.1 SEED SUB-ORGANIZATIONS (Child of Acme Medical)
 INSERT INTO public.sub_organizations (id, tenant_id, organization_id, name, code, status)
 VALUES
-    ('sub11113-bbbb-4111-bbbb-111111111113', '11111111-1111-4111-a111-111111111111', 'bbbbbbbb-1111-4bbb-bbbb-bbbbbbbbbbbb', 'Biomedical Sensor Diagnostic Unit', 'ACME-MED-BSD', 'active')
+    ('e1111113-bbbb-4111-bbbb-111111111113', '11111111-1111-4111-a111-111111111111', 'bbbbbbbb-1111-4bbb-bbbb-bbbbbbbbbbbb', 'Biomedical Sensor Diagnostic Unit', 'ACME-MED-BSD', 'active')
 ON CONFLICT (organization_id, code) DO NOTHING;
 
 -- 3.2 SEED SUB-ORGANIZATIONS (Child of Apex Industrial)
 INSERT INTO public.sub_organizations (id, tenant_id, organization_id, name, code, status)
 VALUES
-    ('sub22221-cccc-4222-cccc-222222222221', '22222222-2222-4222-a222-222222222222', 'cccccccc-2222-4ccc-cccc-cccccccccccc', 'Dimensional Metrology & CMM', 'APEX-IND-CMM', 'active'),
-    ('sub22222-cccc-4222-cccc-222222222222', '22222222-2222-4222-a222-222222222222', 'cccccccc-2222-4ccc-cccc-cccccccccccc', 'Torque & Force Standards Lab', 'APEX-IND-TF', 'active')
+    ('e2222221-cccc-4222-cccc-222222222221', '22222222-2222-4222-a222-222222222222', 'cccccccc-2222-4ccc-cccc-cccccccccccc', 'Dimensional Metrology & CMM', 'APEX-IND-CMM', 'active'),
+    ('e2222222-cccc-4222-cccc-222222222222', '22222222-2222-4222-a222-222222222222', 'cccccccc-2222-4ccc-cccc-cccccccccccc', 'Torque & Force Standards Lab', 'APEX-IND-TF', 'active')
 ON CONFLICT (organization_id, code) DO NOTHING;
 
 -- 4. INITIAL AUDIT LOGS
