@@ -51,11 +51,13 @@ const PRIORITY_FILTERS = [
 export interface CalibrationRequestListPageProps {
   onOpenLabQueue?: () => void;
   onOpenLabIntake?: (requestId: string) => void;
+  onOpenRequestDetails?: (requestId: string) => void;
 }
 
 export const CalibrationRequestListPage: React.FC<CalibrationRequestListPageProps> = ({
   onOpenLabQueue,
   onOpenLabIntake,
+  onOpenRequestDetails: _onOpenRequestDetails,
 }) => {
   const { currentUser, hasPermission } = useAuth();
   const { activeTenant } = useTenant();

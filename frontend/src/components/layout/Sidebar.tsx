@@ -142,6 +142,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           icon: <Truck className="w-4 h-4" />,
           badge: 'Step 15',
         },
+        {
+          id: 'operations-exceptions',
+          label: 'Action & Exception Center',
+          icon: <Wrench className="w-4 h-4" />,
+          badge: 'Step 16',
+        },
+        {
+          id: 'reports',
+          label: 'Executive Reports',
+          icon: <ScrollText className="w-4 h-4" />,
+          badge: 'Step 16',
+        },
       ],
     },
     {

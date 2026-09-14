@@ -1013,6 +1013,104 @@ export interface Dispatch {
   dispatched_by_user?: UserProfile | null;
 }
 
+// ============================================================================
+// STEP 16 TYPES: ANALYTICS, DASHBOARD, EXCEPTION CENTER & GLOBAL SEARCH
+// ============================================================================
+
+export interface DashboardSummary {
+  totalRequests: number;
+  pendingCollection: number;
+  labQueue: number;
+  pendingVerification: number;
+  calibrationInProgress: number;
+  faultyItems: number;
+  servicePendingApproval: number;
+  outsourcedItems: number;
+  pendingQuotations: number;
+  pendingApprovals: number;
+  pendingInvoices: number;
+  awaitingClientSignature: number;
+  readyForDispatch: number;
+  inTransit: number;
+  awaitingDelivery: number;
+  partiallyCompleted: number;
+  completedRequests: number;
+}
+
+export interface WorkflowFunnelItem {
+  stage: string;
+  key: string;
+  count: number;
+}
+
+export interface OperationException {
+  id: string;
+  request_number: string;
+  client_name: string;
+  item_code: string;
+  item_name: string;
+  serial_number: string;
+  exception_type: string;
+  created_date: string;
+  current_status: string;
+  target_route: string;
+  action_label: string;
+}
+
+export interface DueCalibrationItem {
+  id: string;
+  item_code: string;
+  item_name: string;
+  serial_number: string;
+  client_name: string;
+  last_calibration_date?: string | null;
+  next_due_date?: string | null;
+  days_remaining: number;
+  due_status: 'OVERDUE' | 'DUE_SOON' | 'UPCOMING';
+  certificate_number: string;
+}
+
+export interface RequestTimelineEvent {
+  timestamp: string;
+  title: string;
+  description: string;
+  user_name: string;
+  status: string;
+}
+
+export interface ItemProgressRow {
+  item_id: string;
+  item_code: string;
+  item_name: string;
+  serial_number: string;
+  availability: string;
+  verification: string;
+  calibration: string;
+  certificate: string;
+  dispatch: string;
+  delivery: string;
+  final_status: string;
+}
+
+export interface GlobalSearchResult {
+  type: string;
+  reference: string;
+  client: string;
+  status: string;
+  route: string;
+}
+
+export interface AuditLogRow {
+  id: string;
+  timestamp: string;
+  user_name: string;
+  action: string;
+  module: string;
+  resource_id?: string | null;
+  old_values?: any;
+  new_values?: any;
+}
+
 
 
 

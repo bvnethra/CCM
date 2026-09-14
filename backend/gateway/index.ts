@@ -18,6 +18,7 @@ import quotationWorker from '../domain-workers/quotation-worker';
 import invoiceWorker from '../domain-workers/invoice-worker';
 import { signatureWorker } from '../domain-workers/signature-worker';
 import { dispatchWorker } from '../domain-workers/dispatch-worker';
+import { analyticsWorker } from '../domain-workers/analytics-worker';
 import { StorageService } from '../shared/storage';
 
 const app = new Hono<{ Bindings: WorkerEnv; Variables: { user: AuthenticatedUser } }>();
@@ -323,6 +324,8 @@ app.route('/api', signatureWorker);
 app.route('/api/v1/dispatches', dispatchWorker);
 app.route('/api/v1', dispatchWorker);
 app.route('/api', dispatchWorker);
+app.route('/api/v1', analyticsWorker);
+app.route('/api', analyticsWorker);
 
 // 5. Cloudflare R2 Private / Signed URL API
 app.post('/api/v1/storage/signed-url', async (c) => {

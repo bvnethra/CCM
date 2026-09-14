@@ -56,6 +56,14 @@ import {
   Dispatch,
   DispatchItem,
   Delivery,
+  DashboardSummary,
+  WorkflowFunnelItem,
+  OperationException,
+  DueCalibrationItem,
+  RequestTimelineEvent,
+  ItemProgressRow,
+  GlobalSearchResult,
+  AuditLogRow,
 } from '../types';
 import {
   initialTenants,
@@ -5929,6 +5937,338 @@ export const apiClient = {
     memoryDb.notify();
 
     return { document_id: docId, document_name: docName, file_path: path };
+  },
+
+  // ============================================================================
+  // STEP 16 METHODS: ANALYTICS, DASHBOARD, EXCEPTION CENTER, SEARCH & REPORTS
+  // ============================================================================
+
+  async getDashboardSummary(tenantId: string): Promise<DashboardSummary> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/dashboard/summary`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
+    const requests = memoryDb.calibrationRequests.filter((r) => tenantId === 'all' || r.tenant_id === tenantId);
+    const dispatches = memoryDb.dispatches.filter((d) => tenantId === 'all' || d.tenant_id === tenantId);
+    const invoices = memoryDb.invoices.filter((i) => tenantId === 'all' || i.tenant_id === tenantId);
+    const quotes = memoryDb.quotations.filter((q) => tenantId === 'all' || q.tenant_id === tenantId);
+
+    return {
+      totalRequests: requests.length,
+      pendingCollection: requests.filter((r) => r.status === 'CREATED').length,
+      labQueue: requests.filter((r) => r.status === 'LAB_QUEUE').length,
+      pendingVerification: requests.filter((r) => r.status === 'VERIFICATION').length,
+      calibrationInProgress: requests.filter((r) => (r.status as string) === 'CALIBRATION').length,
+      faultyItems: memoryDb.calibrations.filter((c) => (c as any).calibration_result === 'FAIL').length,
+      servicePendingApproval: memoryDb.serviceRequests.filter((s) => (s as any).approval_status === 'PENDING_APPROVAL').length,
+      outsourcedItems: memoryDb.vendorOutsourceRequests.length,
+      pendingQuotations: quotes.filter((q) => q.status === 'DRAFT').length,
+      pendingApprovals: quotes.filter((q) => q.status === 'SENT_TO_CLIENT').length,
+      pendingInvoices: invoices.filter((i) => i.status === 'ISSUED').length,
+      awaitingClientSignature: invoices.filter((i) => (i.status as string) === 'CLIENT_SIGNATURE_PENDING').length,
+      readyForDispatch: dispatches.filter((d) => d.status === 'READY_FOR_DISPATCH').length,
+      inTransit: dispatches.filter((d) => ['DISPATCHED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'].includes(d.status)).length,
+      awaitingDelivery: dispatches.filter((d) => ['DISPATCHED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'].includes(d.status)).length,
+      partiallyCompleted: requests.filter((r) => r.status === 'PARTIALLY_COMPLETED').length,
+      completedRequests: requests.filter((r) => r.status === 'COMPLETED').length,
+    };
+  },
+
+  async getWorkflowFunnel(tenantId: string): Promise<WorkflowFunnelItem[]> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/dashboard/workflow`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
+    const reqs = memoryDb.calibrationRequests.filter((r) => tenantId === 'all' || r.tenant_id === tenantId);
+    return [
+      { stage: 'Requests Created', key: 'CREATED', count: reqs.filter((r) => ['CREATED', 'COLLECTED'].includes(r.status)).length },
+      { stage: 'Lab Queue', key: 'LAB_QUEUE', count: reqs.filter((r) => r.status === 'LAB_QUEUE').length },
+      { stage: 'Verification', key: 'VERIFICATION', count: reqs.filter((r) => r.status === 'VERIFICATION').length },
+      { stage: 'Calibration', key: 'CALIBRATION', count: reqs.filter((r) => ['CALIBRATION', 'CALIBRATED'].includes(r.status)).length },
+      { stage: 'Commercial', key: 'QUOTATION', count: reqs.filter((r) => ['QUOTATION', 'APPROVAL', 'INVOICE'].includes(r.status)).length },
+      { stage: 'Client Signature', key: 'CLIENT_SIGN', count: reqs.filter((r) => (r.status as string) === 'CLIENT_SIGN').length },
+      { stage: 'Dispatch', key: 'DISPATCH', count: reqs.filter((r) => ['READY_TO_DISPATCH', 'DISPATCHED'].includes(r.status)).length },
+      { stage: 'Delivery', key: 'DELIVERY', count: reqs.filter((r) => ['CLIENT_RECEIVED', 'DELIVERY_SIGNED'].includes(r.status)).length },
+      { stage: 'Completed', key: 'COMPLETED', count: reqs.filter((r) => ['COMPLETED', 'PARTIALLY_COMPLETED'].includes(r.status)).length },
+    ];
+  },
+
+  async getOperationExceptions(tenantId: string): Promise<OperationException[]> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/operations/exceptions`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
+    const list: OperationException[] = [];
+    memoryDb.calibrations.forEach((c) => {
+      if ((c as any).calibration_result === 'FAIL') {
+        const req = memoryDb.calibrationRequests.find((r) => r.id === c.request_id);
+        const item = memoryDb.items.find((i) => i.id === c.item_id);
+        list.push({
+          id: `exc-faulty-${c.id}`,
+          request_number: req?.request_number || 'CAL-2026-000001',
+          client_name: req?.client?.client_name || 'Apex Manufacturing',
+          item_code: item?.item_code || 'ITEM-001',
+          item_name: item?.item_name || 'Digital Micrometer',
+          serial_number: item?.serial_number || 'SN-998811',
+          exception_type: 'Faulty Calibration',
+          created_date: (c as any).calibration_date || new Date().toISOString(),
+          current_status: 'SERVICE_REQUIRED',
+          target_route: '/service-requests',
+          action_label: 'Review Service Flow',
+        });
+      }
+    });
+
+    memoryDb.invoices.forEach((inv) => {
+      if ((inv.status as string) === 'CLIENT_SIGNATURE_PENDING') {
+        const client = memoryDb.clients.find((cl) => cl.id === inv.client_id);
+        list.push({
+          id: `exc-sig-${inv.id}`,
+          request_number: 'CAL-2026-000001',
+          client_name: client?.client_name || 'Apex Manufacturing',
+          item_code: 'INVOICE',
+          item_name: `Invoice #${inv.invoice_number}`,
+          serial_number: inv.invoice_number,
+          exception_type: 'Invoice Pending Signature',
+          created_date: inv.created_at,
+          current_status: 'CLIENT_SIGNATURE_PENDING',
+          target_route: `/invoices/${inv.id}`,
+          action_label: 'Capture Signature',
+        });
+      }
+    });
+
+    return list;
+  },
+
+  async getDueCalibrations(tenantId: string, dueStatus: string = 'ALL'): Promise<DueCalibrationItem[]> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/calibration/due-list?due_status=${dueStatus}`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return memoryDb.certificates.map((cert) => {
+      const ri = memoryDb.requestItems.find((r) => r.id === (cert as any).request_item_id);
+      const req = ri ? memoryDb.calibrationRequests.find((cr) => cr.id === ri.request_id) : null;
+      const item = ri ? memoryDb.items.find((it) => it.id === ri.item_id) : null;
+      const client = req ? memoryDb.clients.find((cl) => cl.id === req.client_id) : null;
+
+      const certDueDate = (cert as any).next_due_date;
+      const dueDate = certDueDate ? new Date(certDueDate) : new Date(Date.now() + 30 * 86400000);
+      const diffTime = dueDate.getTime() - today.getTime();
+      const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      let calculatedStatus: 'OVERDUE' | 'DUE_SOON' | 'UPCOMING' = 'UPCOMING';
+      if (daysRemaining < 0) calculatedStatus = 'OVERDUE';
+      else if (daysRemaining <= 30) calculatedStatus = 'DUE_SOON';
+
+      return {
+        id: cert.id,
+        item_code: item?.item_code || 'DIG-MIC-001',
+        item_name: item?.item_name || 'Digital Micrometer 0-25mm',
+        serial_number: item?.serial_number || 'SN-998811',
+        client_name: client?.client_name || 'Apex Precision Engineering',
+        last_calibration_date: (cert as any).calibration_date || cert.created_at,
+        next_due_date: certDueDate || new Date(Date.now() + 30 * 86400000).toISOString(),
+        days_remaining: daysRemaining,
+        due_status: calculatedStatus,
+        certificate_number: cert.certificate_number,
+      };
+    }).filter((c) => dueStatus === 'ALL' || c.due_status === dueStatus);
+  },
+
+  async getRequestTimeline(requestId: string, tenantId: string): Promise<RequestTimelineEvent[]> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/calibration-requests/${requestId}/timeline`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
+    return [
+      { timestamp: new Date(Date.now() - 86400000 * 5).toISOString(), title: 'Request Created', description: 'Calibration request registered by Collection Agent', user_name: 'Super Admin', status: 'CREATED' },
+      { timestamp: new Date(Date.now() - 86400000 * 4).toISOString(), title: 'Submitted to Lab', description: 'Moved to Lab Queue for technician assignment', user_name: 'Collection Agent', status: 'LAB_QUEUE' },
+      { timestamp: new Date(Date.now() - 86400000 * 3).toISOString(), title: 'Verification Completed', description: 'Visual inspection & physical check completed', user_name: 'Lead Calibration Technician', status: 'VERIFICATION' },
+      { timestamp: new Date(Date.now() - 86400000 * 2).toISOString(), title: 'Calibration Completed', description: 'Measurement points tested with PASS result', user_name: 'Lead Calibration Technician', status: 'CALIBRATED' },
+      { timestamp: new Date(Date.now() - 86400000 * 1).toISOString(), title: 'Invoice Issued & Signed', description: 'Commercial invoice generated and client signature captured', user_name: 'Finance Manager', status: 'CLIENT_SIGN' },
+      { timestamp: new Date().toISOString(), title: 'Dispatched & Delivered', description: 'Items dispatched via carrier and delivered to client with digital signature', user_name: 'Logistics Supervisor', status: 'COMPLETED' },
+    ];
+  },
+
+  async getRequestProgressMatrix(requestId: string, tenantId: string): Promise<ItemProgressRow[]> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/calibration-requests/${requestId}/progress`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
+    const reqItems = memoryDb.requestItems.filter((ri) => ri.request_id === requestId);
+
+    return reqItems.map((ri) => {
+      const item = memoryDb.items.find((i) => i.id === ri.item_id);
+      const isDelivered = memoryDb.dispatchItems.some((di) => di.request_item_id === ri.id);
+
+      return {
+        item_id: ri.id,
+        item_code: item?.item_code || 'ITEM-001',
+        item_name: item?.item_name || 'Calibrated Instrument',
+        serial_number: item?.serial_number || 'SN-100200',
+        availability: ri.item_available === 'YES' ? '✓ Available' : 'Unavailable',
+        verification: '✓ Verified',
+        calibration: '✓ PASS',
+        certificate: '✓ CERT-2026-000001',
+        dispatch: isDelivered ? '✓ Dispatched' : 'Pending',
+        delivery: isDelivered ? '✓ Delivered' : 'Pending',
+        final_status: isDelivered ? 'Completed' : 'In Progress',
+      };
+    });
+  },
+
+  async evaluateRequestCompletion(requestId: string, tenantId: string): Promise<{ isFullyCompleted: boolean; newStatus: string }> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/calibration-requests/${requestId}/evaluate-completion`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
+    const req = memoryDb.calibrationRequests.find((r) => r.id === requestId);
+    if (!req) return { isFullyCompleted: false, newStatus: 'CREATED' };
+
+    const reqItems = memoryDb.requestItems.filter((ri) => ri.request_id === requestId);
+    let deliveredCount = 0;
+    reqItems.forEach((ri) => {
+      if (memoryDb.dispatchItems.some((di) => di.request_item_id === ri.id)) deliveredCount++;
+    });
+
+    const isFullyCompleted = deliveredCount >= reqItems.length && reqItems.length > 0;
+    const newStatus = isFullyCompleted ? 'COMPLETED' : deliveredCount > 0 ? 'PARTIALLY_COMPLETED' : req.status;
+
+    const idx = memoryDb.calibrationRequests.findIndex((r) => r.id === requestId);
+    if (idx >= 0) {
+      memoryDb.calibrationRequests[idx].status = newStatus as CalibrationRequestStatus;
+    }
+    memoryDb.notify();
+
+    return { isFullyCompleted, newStatus };
+  },
+
+  async getAuditLogsList(tenantId: string): Promise<AuditLogRow[]> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/audit-logs`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
+    return (memoryDb.auditLogs || []).map((l) => ({
+      id: l.id,
+      timestamp: l.created_at,
+      user_name: 'Super Admin',
+      action: l.action,
+      module: l.resource_type,
+      resource_id: l.resource_id,
+      old_values: l.old_values,
+      new_values: l.new_values,
+    }));
+  },
+
+  async globalSearch(query: string, tenantId: string): Promise<GlobalSearchResult[]> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/global-search?q=${encodeURIComponent(query)}`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
+    const q = query.toLowerCase().trim();
+    if (!q) return [];
+
+    const results: GlobalSearchResult[] = [];
+
+    memoryDb.calibrationRequests.forEach((r) => {
+      if (r.request_number.toLowerCase().includes(q) || r.client?.client_name.toLowerCase().includes(q)) {
+        results.push({
+          type: 'Calibration Request',
+          reference: r.request_number,
+          client: r.client?.client_name || 'N/A',
+          status: r.status,
+          route: `/calibration-requests/${r.id}`,
+        });
+      }
+    });
+
+    memoryDb.invoices.forEach((inv) => {
+      if (inv.invoice_number.toLowerCase().includes(q)) {
+        const client = memoryDb.clients.find((c) => c.id === inv.client_id);
+        results.push({
+          type: 'Invoice',
+          reference: inv.invoice_number,
+          client: client?.client_name || 'N/A',
+          status: inv.status,
+          route: `/invoices/${inv.id}`,
+        });
+      }
+    });
+
+    memoryDb.dispatches.forEach((d) => {
+      if (d.dispatch_number.toLowerCase().includes(q) || d.tracking_number?.toLowerCase().includes(q)) {
+        const client = memoryDb.clients.find((c) => c.id === d.client_id);
+        results.push({
+          type: 'Dispatch',
+          reference: `${d.dispatch_number} (${d.tracking_number || 'No Tracking'})`,
+          client: client?.client_name || 'N/A',
+          status: d.status,
+          route: `/dispatches/${d.id}`,
+        });
+      }
+    });
+
+    return results;
+  },
+
+  async getReports(tenantId: string, reportType: string): Promise<any[]> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/reports?report_type=${reportType}`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
+    return memoryDb.calibrationRequests.map((r) => ({
+      request_number: r.request_number,
+      client: r.client?.client_name || 'N/A',
+      collection_date: r.collection_date,
+      priority: r.priority,
+      status: r.status,
+      created_at: r.created_at,
+    }));
   },
 
 };

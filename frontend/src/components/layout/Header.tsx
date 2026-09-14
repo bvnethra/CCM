@@ -11,6 +11,8 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { Badge } from '../ui/Badge';
+import { api } from '../../lib/api';
+import { GlobalSearchResult } from '../../types';
 
 export interface HeaderProps {
   onMenuToggle: () => void;
@@ -24,6 +26,8 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle, onNavigateToLogin 
   const [isTenantMenuOpen, setIsTenantMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<GlobalSearchResult[]>([]);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
@@ -105,19 +109,71 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle, onNavigateToLogin 
           )}
         </div>
 
-        {/* Global Search Bar (Light & subtle) */}
-        <div className="hidden lg:flex items-center relative w-72">
+        {/* Global Search Bar */}
+        <div className="hidden lg:flex items-center relative w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search records, entities..."
+            onChange={async (e) => {
+              const val = e.target.value;
+              setSearchQuery(val);
+              if (val.trim().length > 0) {
+                const res = await api.globalSearch(val, activeTenant?.id || 'all');
+                setSearchResults(res);
+                setIsSearchOpen(true);
+              } else {
+                setSearchResults([]);
+                setIsSearchOpen(false);
+              }
+            }}
+            onFocus={() => searchQuery.trim().length > 0 && setIsSearchOpen(true)}
+            placeholder="Search request #, client, serial #, invoice #, tracking..."
             className="w-full pl-9 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all"
           />
-          <kbd className="absolute right-2.5 text-[10px] text-slate-400 font-mono bg-white border border-slate-200 px-1 rounded shadow-2xs">
-            ⌘K
-          </kbd>
+          {searchQuery && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setSearchResults([]);
+                setIsSearchOpen(false);
+              }}
+              className="absolute right-2.5 text-xs text-slate-400 hover:text-slate-600 font-bold"
+            >
+              ×
+            </button>
+          )}
+
+          {/* Search Dropdown Results */}
+          {isSearchOpen && searchResults.length > 0 && (
+            <>
+              <div className="fixed inset-0 z-20" onClick={() => setIsSearchOpen(false)} />
+              <div className="absolute top-full left-0 mt-2 w-96 rounded-xl border border-slate-200 bg-white p-2 shadow-2xl z-30 max-h-80 overflow-y-auto">
+                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
+                  Search Results ({searchResults.length})
+                </div>
+                {searchResults.map((res, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      setIsSearchOpen(false);
+                      setSearchQuery('');
+                      window.location.hash = res.route;
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs hover:bg-slate-50 border-b border-slate-50 last:border-0 transition-colors"
+                  >
+                    <div className="flex flex-col text-left">
+                      <span className="font-semibold text-slate-900">{res.reference}</span>
+                      <span className="text-[11px] text-slate-500">{res.client} • <span className="font-mono text-blue-600">{res.type}</span></span>
+                    </div>
+                    <Badge size="sm" variant="info">
+                      {res.status}
+                    </Badge>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 

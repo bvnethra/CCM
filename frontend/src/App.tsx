@@ -36,7 +36,10 @@ import { ClientInvoiceSignPage } from './features/invoices/ClientInvoiceSignPage
 import { DispatchListPage } from './features/dispatch/DispatchListPage';
 import { CreateDispatchPage } from './features/dispatch/CreateDispatchPage';
 import { DispatchDetailsPage } from './features/dispatch/DispatchDetailsPage';
-import { AuditLogViewer } from './features/audit/AuditLogViewer';
+import { RequestDetailsPage } from './features/requests/RequestDetailsPage';
+import { ExceptionCenterPage } from './features/operations/ExceptionCenterPage';
+import { AuditLogsPage } from './features/audit/AuditLogsPage';
+import { ReportsPage } from './features/reports/ReportsPage';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -50,6 +53,7 @@ const AppContent: React.FC = () => {
   const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [selectedDispatchId, setSelectedDispatchId] = useState<string | null>(null);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
 
   // Check for public client signing URL route /client-sign/invoice/:requestReference
   const path = typeof window !== 'undefined' ? window.location.pathname : '';
@@ -105,6 +109,10 @@ const AppContent: React.FC = () => {
             onOpenLabIntake={(reqId) => {
               setSelectedLabRequestId(reqId);
               setCurrentView('lab-intake');
+            }}
+            onOpenRequestDetails={(reqId) => {
+              setSelectedRequestId(reqId);
+              setCurrentView('calibration-request-detail');
             }}
           />
         )}
@@ -275,6 +283,19 @@ const AppContent: React.FC = () => {
             onBack={() => setCurrentView('dispatches')}
           />
         )}
+        {currentView === 'calibration-request-detail' && (
+          <RequestDetailsPage
+            requestId={selectedRequestId || ''}
+            onBack={() => setCurrentView('calibration-requests')}
+            onNavigate={(route) => setCurrentView(route)}
+          />
+        )}
+        {currentView === 'operations-exceptions' && (
+          <ExceptionCenterPage
+            onNavigate={(route) => setCurrentView(route)}
+          />
+        )}
+        {currentView === 'reports' && <ReportsPage />}
         {currentView === 'clients' && <ClientManagementPage />}
         {currentView === 'vendors' && <VendorManagementPage />}
         {currentView === 'items' && <ItemManagementPage />}
@@ -283,7 +304,7 @@ const AppContent: React.FC = () => {
         {currentView === 'sub-organizations' && <SubOrganizationManagementPage />}
         {currentView === 'users' && <UserManagementPage />}
         {currentView === 'roles' && <RolesPermissionsPage />}
-        {currentView === 'audit-logs' && <AuditLogViewer />}
+        {currentView === 'audit-logs' && <AuditLogsPage />}
       </DashboardLayout>
     </TenantProvider>
   );
