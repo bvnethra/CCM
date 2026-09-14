@@ -114,18 +114,18 @@ CREATE POLICY documents_tenant_isolation_delete ON public.documents
     FOR DELETE USING (tenant_id = public.current_tenant_id());
 
 -- 5. REGISTER STEP 8 RBAC PERMISSIONS
-INSERT INTO public.permissions (id, code, name, module, description)
+INSERT INTO public.permissions (code, name, module, description)
 VALUES
-    ('p57', 'verification.view', 'View Verifications', 'Verification', 'Access verification queue and inspect item-level results'),
-    ('p58', 'verification.create', 'Perform Verification', 'Verification', 'Record item identity, serial, quantity, and condition verification'),
-    ('p59', 'verification.edit', 'Modify Verification', 'Verification', 'Update existing item verification records and discrepancy reasons'),
-    ('p60', 'verification.complete', 'Complete Request Verification', 'Verification', 'Finalize request verification and enforce mandatory documents'),
-    ('p61', 'verification.override', 'Override Verification', 'Verification', 'Authorize verification bypass or supervisor exception handling'),
-    ('p62', 'document.view', 'View Proof Documents', 'Documents', 'View and download uploaded proof documents and certificates'),
-    ('p63', 'document.upload', 'Upload Proof Documents', 'Documents', 'Upload proof documents to private Cloudflare R2 storage'),
-    ('p64', 'document.delete', 'Delete Proof Documents', 'Documents', 'Remove proof documents and attachments where permitted'),
-    ('p65', 'document.version', 'Upload Document Version', 'Documents', 'Upload subsequent revisions and version history for documents')
-ON CONFLICT (id) DO NOTHING;
+    ('verification.view', 'View Verifications', 'Verification', 'Access verification queue and inspect item-level results'),
+    ('verification.create', 'Perform Verification', 'Verification', 'Record item identity, serial, quantity, and condition verification'),
+    ('verification.edit', 'Modify Verification', 'Verification', 'Update existing item verification records and discrepancy reasons'),
+    ('verification.complete', 'Complete Request Verification', 'Verification', 'Finalize request verification and enforce mandatory documents'),
+    ('verification.override', 'Override Verification', 'Verification', 'Authorize verification bypass or supervisor exception handling'),
+    ('document.view', 'View Proof Documents', 'Documents', 'View and download uploaded proof documents and certificates'),
+    ('document.upload', 'Upload Proof Documents', 'Documents', 'Upload proof documents to private Cloudflare R2 storage'),
+    ('document.delete', 'Delete Proof Documents', 'Documents', 'Remove proof documents and attachments where permitted'),
+    ('document.version', 'Upload Document Version', 'Documents', 'Upload subsequent revisions and version history for documents')
+ON CONFLICT (code) DO NOTHING;
 
 -- 6. MAP STEP 8 PERMISSIONS TO SYSTEM ROLES
 -- Tenant Admin (all Step 8 permissions)

@@ -1261,15 +1261,15 @@ CREATE POLICY item_masters_tenant_isolation_delete ON public.item_masters
     );
 
 -- 6. Seed RBAC Permissions for Item Master
-INSERT INTO public.permissions (id, name, description, module, created_at)
+INSERT INTO public.permissions (code, name, module, description)
 VALUES
-    (gen_random_uuid(), 'item.view', 'View item master catalog and specifications', 'item_masters', now()),
-    (gen_random_uuid(), 'item.create', 'Create and onboard new item master records', 'item_masters', now()),
-    (gen_random_uuid(), 'item.edit', 'Edit item master properties and metrology parameters', 'item_masters', now()),
-    (gen_random_uuid(), 'item.delete', 'Permanently delete item master records', 'item_masters', now()),
-    (gen_random_uuid(), 'item.activate', 'Activate item master for calibration services', 'item_masters', now()),
-    (gen_random_uuid(), 'item.deactivate', 'Deactivate item master records', 'item_masters', now())
-ON CONFLICT (name) DO UPDATE SET
+    ('item.view', 'View Item Master', 'item_masters', 'View item master catalog and specifications'),
+    ('item.create', 'Create Item Master', 'item_masters', 'Create and onboard new item master records'),
+    ('item.edit', 'Edit Item Master', 'item_masters', 'Edit item master properties and metrology parameters'),
+    ('item.delete', 'Delete Item Master', 'item_masters', 'Permanently delete item master records'),
+    ('item.activate', 'Activate Item Master', 'item_masters', 'Activate item master for calibration services'),
+    ('item.deactivate', 'Deactivate Item Master', 'item_masters', 'Deactivate item master records')
+ON CONFLICT (code) DO UPDATE SET
     description = EXCLUDED.description,
     module = EXCLUDED.module;
 
@@ -1578,18 +1578,18 @@ CREATE POLICY request_items_tenant_isolation_delete ON public.request_items
     );
 
 -- 10. Seed RBAC Permissions for Step 6 (Requests & Collection)
-INSERT INTO public.permissions (id, name, description, module, created_at)
+INSERT INTO public.permissions (code, name, module, description)
 VALUES
-    (gen_random_uuid(), 'request.view', 'View calibration request list and details', 'requests', now()),
-    (gen_random_uuid(), 'request.create', 'Create and initialize calibration requests', 'requests', now()),
-    (gen_random_uuid(), 'request.edit', 'Modify calibration request details and metadata', 'requests', now()),
-    (gen_random_uuid(), 'request.cancel', 'Cancel calibration requests', 'requests', now()),
-    (gen_random_uuid(), 'request.submit', 'Submit calibration requests for lab intake', 'requests', now()),
-    (gen_random_uuid(), 'request.override_availability', 'Override availability warnings for requests containing unavailable items', 'requests', now()),
-    (gen_random_uuid(), 'collection.view', 'View field equipment collection records', 'collections', now()),
-    (gen_random_uuid(), 'collection.create', 'Perform field equipment collection and intake', 'collections', now()),
-    (gen_random_uuid(), 'collection.edit', 'Update field collection records and quantities', 'collections', now())
-ON CONFLICT (name) DO UPDATE SET
+    ('request.view', 'View Calibration Requests', 'requests', 'View calibration request list and details'),
+    ('request.create', 'Create Calibration Request', 'requests', 'Create and initialize calibration requests'),
+    ('request.edit', 'Edit Calibration Request', 'requests', 'Modify calibration request details and metadata'),
+    ('request.cancel', 'Cancel Calibration Request', 'requests', 'Cancel calibration requests'),
+    ('request.submit', 'Submit Calibration Request', 'requests', 'Submit calibration requests for lab intake'),
+    ('request.override_availability', 'Override Request Availability', 'requests', 'Override availability warnings for requests containing unavailable items'),
+    ('collection.view', 'View Collections', 'collections', 'View field equipment collection records'),
+    ('collection.create', 'Create Collection', 'collections', 'Perform field equipment collection and intake'),
+    ('collection.edit', 'Edit Collection', 'collections', 'Update field collection records and quantities')
+ON CONFLICT (code) DO UPDATE SET
     description = EXCLUDED.description,
     module = EXCLUDED.module;
 
@@ -1906,18 +1906,18 @@ CREATE POLICY documents_tenant_isolation_delete ON public.documents
     FOR DELETE USING (tenant_id = public.current_tenant_id());
 
 -- 5. REGISTER STEP 8 RBAC PERMISSIONS
-INSERT INTO public.permissions (id, code, name, module, description)
+INSERT INTO public.permissions (code, name, module, description)
 VALUES
-    ('p57', 'verification.view', 'View Verifications', 'Verification', 'Access verification queue and inspect item-level results'),
-    ('p58', 'verification.create', 'Perform Verification', 'Verification', 'Record item identity, serial, quantity, and condition verification'),
-    ('p59', 'verification.edit', 'Modify Verification', 'Verification', 'Update existing item verification records and discrepancy reasons'),
-    ('p60', 'verification.complete', 'Complete Request Verification', 'Verification', 'Finalize request verification and enforce mandatory documents'),
-    ('p61', 'verification.override', 'Override Verification', 'Verification', 'Authorize verification bypass or supervisor exception handling'),
-    ('p62', 'document.view', 'View Proof Documents', 'Documents', 'View and download uploaded proof documents and certificates'),
-    ('p63', 'document.upload', 'Upload Proof Documents', 'Documents', 'Upload proof documents to private Cloudflare R2 storage'),
-    ('p64', 'document.delete', 'Delete Proof Documents', 'Documents', 'Remove proof documents and attachments where permitted'),
-    ('p65', 'document.version', 'Upload Document Version', 'Documents', 'Upload subsequent revisions and version history for documents')
-ON CONFLICT (id) DO NOTHING;
+    ('verification.view', 'View Verifications', 'Verification', 'Access verification queue and inspect item-level results'),
+    ('verification.create', 'Perform Verification', 'Verification', 'Record item identity, serial, quantity, and condition verification'),
+    ('verification.edit', 'Modify Verification', 'Verification', 'Update existing item verification records and discrepancy reasons'),
+    ('verification.complete', 'Complete Request Verification', 'Verification', 'Finalize request verification and enforce mandatory documents'),
+    ('verification.override', 'Override Verification', 'Verification', 'Authorize verification bypass or supervisor exception handling'),
+    ('document.view', 'View Proof Documents', 'Documents', 'View and download uploaded proof documents and certificates'),
+    ('document.upload', 'Upload Proof Documents', 'Documents', 'Upload proof documents to private Cloudflare R2 storage'),
+    ('document.delete', 'Delete Proof Documents', 'Documents', 'Remove proof documents and attachments where permitted'),
+    ('document.version', 'Upload Document Version', 'Documents', 'Upload subsequent revisions and version history for documents')
+ON CONFLICT (code) DO NOTHING;
 
 -- 6. MAP STEP 8 PERMISSIONS TO SYSTEM ROLES
 -- Tenant Admin (all Step 8 permissions)

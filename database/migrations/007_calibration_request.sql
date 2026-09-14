@@ -187,18 +187,18 @@ CREATE POLICY request_items_tenant_isolation_delete ON public.request_items
     );
 
 -- 10. Seed RBAC Permissions for Step 6 (Requests & Collection)
-INSERT INTO public.permissions (id, name, description, module, created_at)
+INSERT INTO public.permissions (code, name, module, description)
 VALUES
-    (gen_random_uuid(), 'request.view', 'View calibration request list and details', 'requests', now()),
-    (gen_random_uuid(), 'request.create', 'Create and initialize calibration requests', 'requests', now()),
-    (gen_random_uuid(), 'request.edit', 'Modify calibration request details and metadata', 'requests', now()),
-    (gen_random_uuid(), 'request.cancel', 'Cancel calibration requests', 'requests', now()),
-    (gen_random_uuid(), 'request.submit', 'Submit calibration requests for lab intake', 'requests', now()),
-    (gen_random_uuid(), 'request.override_availability', 'Override availability warnings for requests containing unavailable items', 'requests', now()),
-    (gen_random_uuid(), 'collection.view', 'View field equipment collection records', 'collections', now()),
-    (gen_random_uuid(), 'collection.create', 'Perform field equipment collection and intake', 'collections', now()),
-    (gen_random_uuid(), 'collection.edit', 'Update field collection records and quantities', 'collections', now())
-ON CONFLICT (name) DO UPDATE SET
+    ('request.view', 'View Calibration Requests', 'requests', 'View calibration request list and details'),
+    ('request.create', 'Create Calibration Request', 'requests', 'Create and initialize calibration requests'),
+    ('request.edit', 'Edit Calibration Request', 'requests', 'Modify calibration request details and metadata'),
+    ('request.cancel', 'Cancel Calibration Request', 'requests', 'Cancel calibration requests'),
+    ('request.submit', 'Submit Calibration Request', 'requests', 'Submit calibration requests for lab intake'),
+    ('request.override_availability', 'Override Request Availability', 'requests', 'Override availability warnings for requests containing unavailable items'),
+    ('collection.view', 'View Collections', 'collections', 'View field equipment collection records'),
+    ('collection.create', 'Create Collection', 'collections', 'Perform field equipment collection and intake'),
+    ('collection.edit', 'Edit Collection', 'collections', 'Update field collection records and quantities')
+ON CONFLICT (code) DO UPDATE SET
     description = EXCLUDED.description,
     module = EXCLUDED.module;
 

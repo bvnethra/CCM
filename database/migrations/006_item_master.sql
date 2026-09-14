@@ -99,15 +99,15 @@ CREATE POLICY item_masters_tenant_isolation_delete ON public.item_masters
     );
 
 -- 6. Seed RBAC Permissions for Item Master
-INSERT INTO public.permissions (id, name, description, module, created_at)
+INSERT INTO public.permissions (code, name, module, description)
 VALUES
-    (gen_random_uuid(), 'item.view', 'View item master catalog and specifications', 'item_masters', now()),
-    (gen_random_uuid(), 'item.create', 'Create and onboard new item master records', 'item_masters', now()),
-    (gen_random_uuid(), 'item.edit', 'Edit item master properties and metrology parameters', 'item_masters', now()),
-    (gen_random_uuid(), 'item.delete', 'Permanently delete item master records', 'item_masters', now()),
-    (gen_random_uuid(), 'item.activate', 'Activate item master for calibration services', 'item_masters', now()),
-    (gen_random_uuid(), 'item.deactivate', 'Deactivate item master records', 'item_masters', now())
-ON CONFLICT (name) DO UPDATE SET
+    ('item.view', 'View Item Master', 'item_masters', 'View item master catalog and specifications'),
+    ('item.create', 'Create Item Master', 'item_masters', 'Create and onboard new item master records'),
+    ('item.edit', 'Edit Item Master', 'item_masters', 'Edit item master properties and metrology parameters'),
+    ('item.delete', 'Delete Item Master', 'item_masters', 'Permanently delete item master records'),
+    ('item.activate', 'Activate Item Master', 'item_masters', 'Activate item master for calibration services'),
+    ('item.deactivate', 'Deactivate Item Master', 'item_masters', 'Deactivate item master records')
+ON CONFLICT (code) DO UPDATE SET
     description = EXCLUDED.description,
     module = EXCLUDED.module;
 
