@@ -514,3 +514,44 @@ vendorWorker.delete('/vendors/:id', requirePermission('vendor.delete'), async (c
 
   return c.json({ success: true, message: 'Vendor deleted successfully' });
 });
+
+// ==========================================
+// 7. GET VENDOR INTERNAL HISTORY ROLL-UP
+// ==========================================
+vendorWorker.get('/vendors/:id/history', requirePermission('vendor.view'), async (c) => {
+  const user = c.get('user');
+  const vendorId = c.req.param('id');
+  const supabase = getSupabase(c);
+
+  const [poRes, outsourceRes, calRecordsRes] = await Promise.all([
+    supabase
+      .from('purchase_orders')
+      .select('id, po_number, po_date, status, total_amount, currency, created_at')
+      .eq('vendor_id', vendorId)
+      .eq('tenant_id', user.tenantId)
+      .order('created_at', { ascending: false }),
+
+    supabase
+      .from('vendor_outsource_requests')
+      .select('id, outsource_status, outsource_reason, expected_return_date, created_at, request_id, request_item_id')
+      .eq('vendor_id', vendorId)
+      .eq('tenant_id', user.tenantId)
+      .order('created_at', { ascending: false }),
+
+    supabase
+      .from('vendor_calibration_records')
+      .select('id, vendor_certificate_number, vendor_result, calibrated_at, report_received_at, created_at')
+      .eq('vendor_id', vendorId)
+      .eq('tenant_id', user.tenantId)
+      .order('created_at', { ascending: false }),
+  ]);
+
+  return c.json({
+    success: true,
+    data: {
+      purchaseOrders: poRes.data || [],
+      outsourcedRequests: outsourceRes.data || [],
+      calibrationRecords: calRecordsRes.data || [],
+    },
+  });
+});

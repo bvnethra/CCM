@@ -534,11 +534,13 @@ export interface DueListItem {
   id: string;
   request_id: string;
   request_number: string;
+  client_id?: string;
   item_id: string;
   item_code: string;
   item_name: string;
   serial_number: string;
   client?: Client | null;
+  vendor?: Vendor | null;
   last_calibration_date: string;
   calibration_frequency: number;
   calibration_frequency_unit: string;
@@ -739,6 +741,7 @@ export type QuotationStatus =
   | 'DRAFT'
   | 'PENDING_APPROVAL'
   | 'APPROVED'
+  | 'REJECTED'
   | 'SENT_TO_CLIENT'
   | 'CLIENT_APPROVED'
   | 'CLIENT_REJECTED'
@@ -752,10 +755,11 @@ export interface QuotationItem {
   id: string;
   tenant_id: string;
   quotation_id: string;
-  request_item_id: string;
+  request_item_id?: string | null;
   item_id: string;
   description?: string | null;
   quantity: number;
+  consumed_quantity?: number;
   standard_cost: number;
   override_cost?: number | null;
   final_unit_cost: number;
@@ -793,7 +797,8 @@ export interface Quotation {
   organization_id?: string | null;
   sub_org_id?: string | null;
   quotation_number: string;
-  request_id: string;
+  quotation_type?: 'STANDALONE' | 'REQUEST_BASED';
+  request_id?: string | null;
   client_id: string;
   quotation_date: string;
   valid_until: string;
@@ -830,7 +835,7 @@ export interface InvoiceItem {
   id: string;
   tenant_id: string;
   invoice_id: string;
-  request_item_id: string;
+  request_item_id?: string | null;
   item_id: string;
   quotation_item_id?: string | null;
   description?: string | null;
@@ -854,7 +859,7 @@ export interface Invoice {
   sub_org_id?: string | null;
   invoice_number: string;
   quotation_id: string;
-  request_id: string;
+  request_id?: string | null;
   client_id: string;
   invoice_date: string;
   due_date: string;

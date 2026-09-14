@@ -26,7 +26,7 @@ interface CreateInvoicePageProps {
 
 interface QuotationItemRow {
   quotation_item_id: string;
-  request_item_id: string;
+  request_item_id?: string | null;
   item_id: string;
   item_code: string;
   item_name: string;
@@ -146,9 +146,9 @@ export const CreateInvoicePage: React.FC<CreateInvoicePageProps> = ({
 
   const grandTotal = subtotal + totalTax;
 
-  const handleToggleItem = (reqItemId: string) => {
+  const handleToggleItem = (qItemId: string) => {
     setItemRows((prev) =>
-      prev.map((i) => (i.request_item_id === reqItemId && !i.is_already_invoiced ? { ...i, selected: !i.selected } : i))
+      prev.map((i) => (i.quotation_item_id === qItemId && !i.is_already_invoiced ? { ...i, selected: !i.selected } : i))
     );
   };
 
@@ -396,13 +396,13 @@ export const CreateInvoicePage: React.FC<CreateInvoicePageProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {itemRows.map((item) => (
-                  <tr key={item.request_item_id} className={item.is_already_invoiced ? 'bg-slate-50/70 opacity-60' : item.selected ? 'bg-indigo-50/30' : 'bg-white'}>
+                  <tr key={item.quotation_item_id} className={item.is_already_invoiced ? 'bg-slate-50/70 opacity-60' : item.selected ? 'bg-indigo-50/30' : 'bg-white'}>
                     <td className="p-3 text-center">
                       <input
                         type="checkbox"
                         checked={item.selected}
                         disabled={item.is_already_invoiced}
-                        onChange={() => handleToggleItem(item.request_item_id)}
+                        onChange={() => handleToggleItem(item.quotation_item_id)}
                         className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
                       />
                     </td>

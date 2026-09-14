@@ -34,6 +34,7 @@ export const QuotationListPage: React.FC<QuotationListPageProps> = ({
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
 
   const fetchQuotations = async () => {
@@ -42,6 +43,7 @@ export const QuotationListPage: React.FC<QuotationListPageProps> = ({
     try {
       const res = await api.getQuotations(activeTenant.id, {
         status: statusFilter,
+        quotationType: typeFilter,
         search: searchTerm,
       });
       setQuotations(res);
@@ -54,7 +56,7 @@ export const QuotationListPage: React.FC<QuotationListPageProps> = ({
 
   useEffect(() => {
     fetchQuotations();
-  }, [activeTenant, statusFilter, searchTerm]);
+  }, [activeTenant, statusFilter, typeFilter, searchTerm]);
 
   // Metrics
   const totalQuotations = quotations.length;
@@ -107,14 +109,25 @@ export const QuotationListPage: React.FC<QuotationListPageProps> = ({
       ),
     },
     {
+      header: 'Type',
+      render: (row) => {
+        const isStandalone = row.quotation_type === 'STANDALONE' || !row.request_id;
+        return (
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isStandalone ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
+            {isStandalone ? 'STANDALONE' : 'REQUEST_BASED'}
+          </span>
+        );
+      },
+    },
+    {
       header: 'Client Details',
       render: (row) => (
         <div>
-          <div className="font-medium text-slate-900 flex items-center gap-1.5">
+          <div className="font-medium text-slate-900 flex items-center gap-1.5 text-xs">
             <Building2 className="w-3.5 h-3.5 text-slate-400" />
             {row.client?.client_name || 'Client Record'}
           </div>
-          <div className="text-xs text-slate-500 font-mono">
+          <div className="text-[11px] text-slate-500 font-mono">
             {row.client?.client_code} | GST: {row.client?.gst_number || 'N/A'}
           </div>
         </div>
@@ -124,7 +137,7 @@ export const QuotationListPage: React.FC<QuotationListPageProps> = ({
       header: 'Request #',
       render: (row) => (
         <span className="font-mono text-xs text-slate-700">
-          {row.request?.request_number || 'N/A'}
+          {row.request?.request_number || (row.quotation_type === 'STANDALONE' || !row.request_id ? <em className="text-purple-600 font-sans">None (Standalone)</em> : 'N/A')}
         </span>
       ),
     },
@@ -139,7 +152,7 @@ export const QuotationListPage: React.FC<QuotationListPageProps> = ({
     {
       header: 'Total Amount (₹)',
       render: (row) => (
-        <div className="font-semibold text-slate-900 font-mono text-right">
+        <div className="font-semibold text-slate-900 font-mono text-right text-xs">
           ₹{row.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
         </div>
       ),
@@ -174,7 +187,7 @@ export const QuotationListPage: React.FC<QuotationListPageProps> = ({
             Commercial Quotations
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Manage commercial pricing, cost overrides, internal approvals, and client response tracking in Indian Rupees (₹).
+            Manage Standalone (Mode B) and Request-Based (Mode A) commercial quotations in Indian Rupees (₹).
           </p>
         </div>
 
@@ -237,11 +250,21 @@ export const QuotationListPage: React.FC<QuotationListPageProps> = ({
             />
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
+            <Select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="text-sm border-slate-300 w-44"
+            >
+              <option value="ALL">All Types</option>
+              <option value="STANDALONE">Standalone Mode B</option>
+              <option value="REQUEST_BASED">Request-Based Mode A</option>
+            </Select>
+
             <Select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="text-sm border-slate-300"
+              className="text-sm border-slate-300 w-44"
             >
               <option value="ALL">All Statuses</option>
               <option value="DRAFT">Draft</option>
@@ -257,12 +280,12 @@ export const QuotationListPage: React.FC<QuotationListPageProps> = ({
         </div>
       </Card>
 
-      {/* Quotations Table */}
-      <Card className="p-0 overflow-hidden border border-slate-200">
+      {/* Quotations List Table */}
+      <Card className="p-0 overflow-hidden">
         <Table
           columns={columns}
           data={quotations}
-          keyExtractor={(row) => row.id}
+          keyExtractor={(item) => item.id}
           isLoading={loading}
           emptyMessage="No commercial quotations found."
         />

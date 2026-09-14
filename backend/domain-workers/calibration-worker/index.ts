@@ -938,3 +938,163 @@ calibrationWorker.get('/certificates/:id/download-url', requirePermission('certi
     },
   });
 });
+
+// ============================================================================
+// 9. DUE LIST DIRECT ACTIONS: CREATE REQUEST & CREATE QUOTATION
+// ============================================================================
+calibrationWorker.post('/calibrations/due-list/:itemId/create-request', requirePermission('request.create'), async (c) => {
+  const user = c.get('user');
+  const tenantId = user.tenantId;
+  const itemId = c.req.param('itemId');
+  const body = await c.req.json().catch(() => ({}));
+  const supabase = getSupabase(c);
+
+  const { data: item, error: itemErr } = await supabase
+    .from('item_masters')
+    .select('*, organization:organizations(id), sub_organization:sub_organizations(id)')
+    .eq('id', itemId)
+    .eq('tenant_id', tenantId)
+    .single();
+
+  if (itemErr || !item) {
+    return c.json({ success: false, error: 'Item not found' }, 404);
+  }
+
+  const clientId = body.client_id || body.clientId;
+  if (!clientId) {
+    return c.json({ success: false, error: 'client_id is required' }, 400);
+  }
+
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  const requestNumber = `REQ-DUE-${new Date().getFullYear()}-${randomSuffix}`;
+
+  const { data: newReq, error: reqErr } = await supabase
+    .from('calibration_requests')
+    .insert({
+      tenant_id: tenantId,
+      organization_id: item.organization_id || null,
+      sub_org_id: item.sub_org_id || null,
+      request_number: requestNumber,
+      client_id: clientId,
+      collection_agent_id: user.userId,
+      collection_date: new Date().toISOString().split('T')[0],
+      priority: body.priority || 'NORMAL',
+      status: 'CREATED',
+      remarks: `Directly created from Calibration Due List for item ${item.item_code} (${item.item_name})`,
+      created_by: user.userId,
+    })
+    .select()
+    .single();
+
+  if (reqErr || !newReq) {
+    return c.json({ success: false, error: reqErr?.message || 'Failed to create Calibration Request' }, 500);
+  }
+
+  await supabase.from('request_items').insert({
+    request_id: newReq.id,
+    tenant_id: tenantId,
+    item_id: item.id,
+    requested_quantity: 1,
+    item_available: 'YES',
+  });
+
+  await logAuditEvent(c, {
+    action: 'DUE_LIST_REQUEST_CREATED',
+    resourceType: 'calibration_requests',
+    resourceId: newReq.id,
+    newValues: { item_id: itemId, request_number: requestNumber },
+  });
+
+  return c.json({
+    success: true,
+    message: `Calibration Request ${requestNumber} pre-filled and created from Due List`,
+    data: newReq,
+  });
+});
+
+calibrationWorker.post('/calibrations/due-list/:itemId/create-quotation', requirePermission('quotation.create'), async (c) => {
+  const user = c.get('user');
+  const tenantId = user.tenantId;
+  const itemId = c.req.param('itemId');
+  const body = await c.req.json().catch(() => ({}));
+  const supabase = getSupabase(c);
+
+  const { data: item, error: itemErr } = await supabase
+    .from('item_masters')
+    .select('*')
+    .eq('id', itemId)
+    .eq('tenant_id', tenantId)
+    .single();
+
+  if (itemErr || !item) {
+    return c.json({ success: false, error: 'Item not found' }, 404);
+  }
+
+  const clientId = body.client_id || body.clientId;
+  if (!clientId) {
+    return c.json({ success: false, error: 'client_id is required' }, 400);
+  }
+
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  const quotationNumber = `QTN-STD-${new Date().getFullYear()}-${randomSuffix}`;
+  const validUntil = body.valid_until || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+
+  const standardCost = Number(item.standard_cost) || 0;
+  const taxAmount = (standardCost * 18) / 100;
+  const totalAmount = standardCost + taxAmount;
+
+  const { data: newQtn, error: qtnErr } = await supabase
+    .from('quotations')
+    .insert({
+      tenant_id: tenantId,
+      organization_id: item.organization_id || null,
+      sub_org_id: item.sub_org_id || null,
+      quotation_number: quotationNumber,
+      quotation_type: 'STANDALONE',
+      request_id: null,
+      client_id: clientId,
+      valid_until: validUntil,
+      currency: 'INR',
+      status: 'DRAFT',
+      subtotal: standardCost,
+      tax_amount: taxAmount,
+      discount_amount: 0,
+      total_amount: totalAmount,
+      version_number: 1,
+      remarks: `Directly created from Calibration Due List for item ${item.item_code}`,
+      created_by: user.userId,
+    })
+    .select()
+    .single();
+
+  if (qtnErr || !newQtn) {
+    return c.json({ success: false, error: qtnErr?.message || 'Failed to create Standalone Quotation' }, 500);
+  }
+
+  await supabase.from('quotation_items').insert({
+    tenant_id: tenantId,
+    quotation_id: newQtn.id,
+    request_item_id: null,
+    item_id: item.id,
+    description: `${item.item_name} - ${item.model || ''}`,
+    quantity: 1,
+    standard_cost: standardCost,
+    final_unit_cost: standardCost,
+    tax_rate: 18,
+    tax_amount: taxAmount,
+    line_total: totalAmount,
+  });
+
+  await logAuditEvent(c, {
+    action: 'DUE_LIST_QUOTATION_CREATED',
+    resourceType: 'quotations',
+    resourceId: newQtn.id,
+    newValues: { item_id: itemId, quotation_number: quotationNumber },
+  });
+
+  return c.json({
+    success: true,
+    message: `Standalone Quotation ${quotationNumber} pre-filled and created from Due List`,
+    data: newQtn,
+  });
+});

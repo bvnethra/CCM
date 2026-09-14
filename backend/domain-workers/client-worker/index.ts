@@ -506,3 +506,77 @@ clientWorker.delete('/clients/:id', requirePermission('client.delete'), async (c
 
   return c.json({ success: true, message: 'Client deleted successfully' });
 });
+
+// ==========================================
+// 7. GET CLIENT QUOTATION HISTORY
+// ==========================================
+clientWorker.get('/clients/:id/quotation-history', requirePermission('client.view'), async (c) => {
+  const user = c.get('user');
+  const clientId = c.req.param('id');
+  const supabase = getSupabase(c);
+
+  const { data: qtns, error } = await supabase
+    .from('quotations')
+    .select(`
+      id,
+      quotation_number,
+      quotation_type,
+      quotation_date,
+      valid_until,
+      status,
+      total_amount,
+      currency,
+      created_by,
+      created_at
+    `)
+    .eq('client_id', clientId)
+    .eq('tenant_id', user.tenantId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    return c.json({ success: false, error: error.message }, 500);
+  }
+
+  return c.json({ success: true, data: qtns || [] });
+});
+
+// ==========================================
+// 8. GET CLIENT COMPLETE HISTORY ROLL-UP
+// ==========================================
+clientWorker.get('/clients/:id/history', requirePermission('client.view'), async (c) => {
+  const user = c.get('user');
+  const clientId = c.req.param('id');
+  const supabase = getSupabase(c);
+
+  const [reqRes, qtnRes, invRes] = await Promise.all([
+    supabase
+      .from('calibration_requests')
+      .select('id, request_number, created_at, status, priority')
+      .eq('client_id', clientId)
+      .eq('tenant_id', user.tenantId)
+      .order('created_at', { ascending: false }),
+
+    supabase
+      .from('quotations')
+      .select('id, quotation_number, quotation_type, quotation_date, status, total_amount, currency')
+      .eq('client_id', clientId)
+      .eq('tenant_id', user.tenantId)
+      .order('created_at', { ascending: false }),
+
+    supabase
+      .from('invoices')
+      .select('id, invoice_number, invoice_type, invoice_date, status, total_amount, currency')
+      .eq('client_id', clientId)
+      .eq('tenant_id', user.tenantId)
+      .order('created_at', { ascending: false }),
+  ]);
+
+  return c.json({
+    success: true,
+    data: {
+      requests: reqRes.data || [],
+      quotations: qtnRes.data || [],
+      invoices: invRes.data || [],
+    },
+  });
+});

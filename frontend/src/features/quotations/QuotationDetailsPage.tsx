@@ -6,6 +6,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
+import { Input } from '../../components/ui/Input';
 import {
   ArrowLeft,
   FileText,
@@ -17,6 +18,7 @@ import {
   IndianRupee,
   ShieldCheck,
   UserCheck,
+  FilePlus,
 } from 'lucide-react';
 
 interface QuotationDetailsPageProps {
@@ -48,12 +50,26 @@ export const QuotationDetailsPage: React.FC<QuotationDetailsPageProps> = ({
   const [clientResponse, setClientResponse] = useState<'APPROVED' | 'REJECTED'>('APPROVED');
   const [clientRemarks, setClientRemarks] = useState('');
 
+  // Create Request from Standalone Quotation state
+  const [showCreateRequestModal, setShowCreateRequestModal] = useState(false);
+  const [selectedItemsForRequest, setSelectedItemsForRequest] = useState<Record<string, number>>({});
+
   const fetchQuotation = async () => {
     if (!activeTenant || !quotationId) return;
     setLoading(true);
     try {
       const data = await api.getQuotationDetails(quotationId, activeTenant.id);
       setQuotation(data);
+
+      // Initialize items for request conversion
+      if (data.items) {
+        const initialMap: Record<string, number> = {};
+        data.items.forEach((item) => {
+          const avail = item.quantity - (item.consumed_quantity || 0);
+          if (avail > 0) initialMap[item.id] = avail;
+        });
+        setSelectedItemsForRequest(initialMap);
+      }
     } catch (err) {
       console.error('Failed to load quotation details:', err);
     } finally {
@@ -148,6 +164,30 @@ export const QuotationDetailsPage: React.FC<QuotationDetailsPageProps> = ({
     }
   };
 
+  const handleCreateRequestFromQuotationSubmit = async () => {
+    if (!activeTenant || !quotation) return;
+    const itemsToConvert = Object.entries(selectedItemsForRequest)
+      .filter(([_, qty]) => qty > 0)
+      .map(([quotation_item_id, quantity]) => ({ quotation_item_id, quantity }));
+
+    if (itemsToConvert.length === 0) {
+      alert('Please select at least one item and quantity to convert into a Calibration Request.');
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const res = await api.createRequestFromQuotation(activeTenant.id, quotation.id, itemsToConvert);
+      alert(`Calibration Request ${res.requestNumber} successfully created from Quotation ${quotation.quotation_number}!`);
+      setShowCreateRequestModal(false);
+      await fetchQuotation();
+    } catch (err: any) {
+      alert(err.message || 'Failed to create request from quotation');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -188,6 +228,9 @@ export const QuotationDetailsPage: React.FC<QuotationDetailsPageProps> = ({
     );
   }
 
+  const isStandalone = quotation.quotation_type === 'STANDALONE' || !quotation.request_id;
+  const canCreateRequest = isStandalone && (quotation.status === 'APPROVED' || quotation.status === 'SENT_TO_CLIENT' || quotation.status === 'CLIENT_APPROVED');
+
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto pb-16">
       {/* Header Bar */}
@@ -200,12 +243,15 @@ export const QuotationDetailsPage: React.FC<QuotationDetailsPageProps> = ({
             </Button>
           )}
           <div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 flex-wrap">
               <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-mono">
                 {quotation.quotation_number}
               </h1>
               <span className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700 text-xs font-semibold">
                 Version {quotation.version_number}
+              </span>
+              <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${isStandalone ? 'bg-purple-100 text-purple-800 border border-purple-200' : 'bg-blue-100 text-blue-800 border border-blue-200'}`}>
+                {isStandalone ? 'STANDALONE QUOTATION' : 'REQUEST-BASED QUOTATION'}
               </span>
               {renderStatusBadge(quotation.status)}
             </div>
@@ -217,6 +263,17 @@ export const QuotationDetailsPage: React.FC<QuotationDetailsPageProps> = ({
 
         {/* Header Actions */}
         <div className="flex items-center gap-2.5 flex-wrap">
+          {canCreateRequest && (
+            <Button
+              onClick={() => setShowCreateRequestModal(true)}
+              disabled={actionLoading}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs inline-flex items-center gap-1.5"
+            >
+              <FilePlus className="w-3.5 h-3.5" />
+              Create Request from Quotation
+            </Button>
+          )}
+
           {quotation.status === 'DRAFT' && (
             <Button
               onClick={() => setShowSubmitModal(true)}
@@ -238,7 +295,7 @@ export const QuotationDetailsPage: React.FC<QuotationDetailsPageProps> = ({
               className="bg-purple-600 hover:bg-purple-700 text-white text-xs inline-flex items-center gap-1.5"
             >
               <UserCheck className="w-3.5 h-3.5" />
-              Internal Approval Action
+              Lab Approval Action
             </Button>
           )}
 
@@ -307,12 +364,20 @@ export const QuotationDetailsPage: React.FC<QuotationDetailsPageProps> = ({
           <div className="border-t border-slate-200 pt-4">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
               <FileText className="w-4 h-4 text-indigo-600" />
-              Calibration Request
+              Calibration Request Reference
             </h2>
-            <div className="text-sm font-semibold text-slate-800 font-mono">{quotation.request?.request_number}</div>
-            <div className="text-xs text-slate-500 mt-0.5">
-              Priority: <span className="font-semibold">{quotation.request?.priority}</span>
-            </div>
+            {isStandalone ? (
+              <div className="text-xs text-purple-700 bg-purple-50 p-2.5 rounded-lg border border-purple-200 font-semibold">
+                Standalone Quotation (No Direct Request Reference)
+              </div>
+            ) : (
+              <div>
+                <div className="text-sm font-semibold text-slate-800 font-mono">{quotation.request?.request_number}</div>
+                <div className="text-xs text-slate-500 mt-0.5">
+                  Priority: <span className="font-semibold">{quotation.request?.priority}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {quotation.client_response !== 'PENDING' && (
@@ -351,8 +416,8 @@ export const QuotationDetailsPage: React.FC<QuotationDetailsPageProps> = ({
                 <tr>
                   <th className="p-3">#</th>
                   <th className="p-3">Item & Description</th>
-                  <th className="p-3 text-center">Source</th>
                   <th className="p-3 text-right">Qty</th>
+                  {isStandalone && <th className="p-3 text-right">Converted Qty</th>}
                   <th className="p-3 text-right">Unit Cost (₹)</th>
                   <th className="p-3 text-right">Line Total (₹)</th>
                 </tr>
@@ -364,7 +429,7 @@ export const QuotationDetailsPage: React.FC<QuotationDetailsPageProps> = ({
                     <td className="p-3">
                       <div className="font-semibold text-slate-900">{item.item?.item_name || item.description}</div>
                       <div className="text-[11px] font-mono text-slate-500">
-                        {item.item?.item_code} | SN: {item.item?.serial_number || 'N/A'}
+                        {item.item?.item_code} | Type: {item.item?.item_type || 'N/A'}
                       </div>
                       {item.override_cost && (
                         <div className="text-[10px] text-amber-700 font-mono mt-0.5">
@@ -372,18 +437,12 @@ export const QuotationDetailsPage: React.FC<QuotationDetailsPageProps> = ({
                         </div>
                       )}
                     </td>
-                    <td className="p-3 text-center">
-                      {item.calibration_source === 'VENDOR' ? (
-                        <Badge variant="purple" className="text-[10px]">
-                          VENDOR
-                        </Badge>
-                      ) : (
-                        <Badge variant="info" className="text-[10px]">
-                          INTERNAL
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="p-3 text-right font-mono">{item.quantity}</td>
+                    <td className="p-3 text-right font-mono font-semibold">{item.quantity}</td>
+                    {isStandalone && (
+                      <td className="p-3 text-right font-mono text-emerald-700 font-semibold">
+                        {item.consumed_quantity || 0} / {item.quantity}
+                      </td>
+                    )}
                     <td className="p-3 text-right font-mono">₹{item.final_unit_cost.toFixed(2)}</td>
                     <td className="p-3 text-right font-mono font-semibold text-slate-900">
                       ₹{item.line_total.toFixed(2)}
@@ -423,7 +482,7 @@ export const QuotationDetailsPage: React.FC<QuotationDetailsPageProps> = ({
         <Card className="p-5 space-y-4 border-slate-200">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400 border-b pb-2 flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4 text-indigo-600" />
-            Internal Approval History Log
+            Internal Lab Approval History Log
           </h2>
 
           <div className="space-y-3">
@@ -455,11 +514,11 @@ export const QuotationDetailsPage: React.FC<QuotationDetailsPageProps> = ({
       <Modal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
-        title="Submit Quotation for Internal Approval"
+        title="Submit Quotation for Lab Approver Gate"
       >
         <div className="space-y-4">
           <p className="text-xs text-slate-600">
-            Submit Quotation <span className="font-mono font-semibold">{quotation.quotation_number}</span> to Quality/Lab Manager for internal approval.
+            Submit Quotation <span className="font-mono font-semibold">{quotation.quotation_number}</span> to authorized Lab Approver for mandatory approval gate before client delivery.
           </p>
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">Remarks (Optional)</label>
@@ -467,7 +526,7 @@ export const QuotationDetailsPage: React.FC<QuotationDetailsPageProps> = ({
               rows={3}
               value={submitRemarks}
               onChange={(e) => setSubmitRemarks(e.target.value)}
-              placeholder="Enter remarks for approver..."
+              placeholder="Enter remarks for Lab Approver..."
               className="w-full text-xs rounded-lg border border-slate-300 p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
             />
           </div>
@@ -486,7 +545,7 @@ export const QuotationDetailsPage: React.FC<QuotationDetailsPageProps> = ({
       <Modal
         isOpen={showApprovalModal}
         onClose={() => setShowApprovalModal(false)}
-        title="Internal Approval Decision"
+        title="Lab Approver Gate Decision"
       >
         <div className="space-y-4">
           <div className="flex gap-4">
@@ -560,7 +619,7 @@ export const QuotationDetailsPage: React.FC<QuotationDetailsPageProps> = ({
                 onChange={() => setClientResponse('APPROVED')}
                 className="text-emerald-600 focus:ring-emerald-500"
               />
-              Client Approved (Ready for Invoice Flow)
+              Client Approved
             </label>
             <label className="flex items-center gap-2 text-xs font-semibold text-rose-700 cursor-pointer">
               <input
@@ -597,6 +656,70 @@ export const QuotationDetailsPage: React.FC<QuotationDetailsPageProps> = ({
               className={clientResponse === 'APPROVED' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-rose-600 hover:bg-rose-700 text-white'}
             >
               Record Decision
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* MODAL 4: Create Request from Standalone Quotation */}
+      <Modal
+        isOpen={showCreateRequestModal}
+        onClose={() => setShowCreateRequestModal(false)}
+        title="Create Calibration Request from Standalone Quotation"
+        description="Select eligible quotation lines and quantities to convert into a new Calibration Request."
+        maxWidth="lg"
+      >
+        <div className="space-y-4 text-xs">
+          <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 text-purple-900">
+            <span className="font-semibold">Partial Usage Supported:</span> Unconverted quotation items will remain available for future requests.
+          </div>
+
+          <div className="space-y-3 max-h-64 overflow-y-auto">
+            {(quotation.items || []).map((item) => {
+              const maxAvail = item.quantity - (item.consumed_quantity || 0);
+              const currentQty = selectedItemsForRequest[item.id] || 0;
+
+              return (
+                <div key={item.id} className="p-3 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="font-bold text-slate-900">{item.item?.item_name || item.description}</div>
+                    <div className="text-slate-500 font-mono text-[11px]">
+                      {item.item?.item_code} | Total Qty: {item.quantity} | Already Consumed: {item.consumed_quantity || 0}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-slate-600 font-semibold">Qty to Request:</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max={maxAvail}
+                      disabled={maxAvail <= 0}
+                      value={currentQty}
+                      onChange={(e) =>
+                        setSelectedItemsForRequest((prev) => ({
+                          ...prev,
+                          [item.id]: Math.min(maxAvail, Math.max(0, parseInt(e.target.value) || 0)),
+                        }))
+                      }
+                      className="w-20 text-center font-mono text-xs py-1"
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setShowCreateRequestModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleCreateRequestFromQuotationSubmit}
+              disabled={actionLoading}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+            >
+              {actionLoading ? 'Creating Request...' : 'Create Calibration Request'}
             </Button>
           </div>
         </div>

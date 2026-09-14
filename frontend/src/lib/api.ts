@@ -4278,13 +4278,28 @@ export const apiClient = {
 
   async getQuotations(
     tenantId: string,
-    filters: { status?: string; search?: string; clientId?: string } = {}
+    filters: { status?: string; search?: string; clientId?: string; quotationType?: string } = {}
   ): Promise<Quotation[]> {
+    if (isSupabaseConfigured && supabase) {
+      const params = new URLSearchParams();
+      if (filters.status) params.append('status', filters.status);
+      if (filters.search) params.append('search', filters.search);
+      if (filters.clientId) params.append('client_id', filters.clientId);
+      if (filters.quotationType) params.append('quotation_type', filters.quotationType);
+
+      const res = await fetch(`${API_BASE}/quotations?${params.toString()}`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
     return memoryDb.quotations
       .filter((q) => {
         if (tenantId !== 'all' && q.tenant_id !== tenantId) return false;
         if (filters.status && filters.status !== 'ALL' && q.status !== filters.status) return false;
         if (filters.clientId && q.client_id !== filters.clientId) return false;
+        if (filters.quotationType && filters.quotationType !== 'ALL' && q.quotation_type !== filters.quotationType) return false;
         if (filters.search) {
           const s = filters.search.toLowerCase();
           const matchNo = q.quotation_number.toLowerCase().includes(s);
@@ -4310,6 +4325,14 @@ export const apiClient = {
   },
 
   async getQuotationDetails(quotationId: string, tenantId: string): Promise<Quotation> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/quotations/${quotationId}`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
     const q = memoryDb.quotations.find((quo) => quo.id === quotationId && (tenantId === 'all' || quo.tenant_id === tenantId));
     if (!q) throw new Error('Quotation not found');
 
@@ -4350,12 +4373,10 @@ export const apiClient = {
     for (const ri of reqItems) {
       const item = memoryDb.items.find((i) => i.id === ri.item_id);
       
-      // Check 1: Internal Calibration Completed with PASS or ADJUSTED
       const internalCal = memoryDb.calibrations.find(
         (c) => c.request_item_id === ri.id && (c.result === 'PASS' || c.result === 'ADJUSTED') && c.status === 'COMPLETED'
       );
 
-      // Check 2: Vendor Outsourcing Completed & Reintegrated with PASS or ADJUSTED
       const vor = memoryDb.vendorOutsourceRequests.find(
         (v) => v.request_item_id === ri.id && v.outsource_status === 'REINTEGRATED'
       );
@@ -4385,14 +4406,15 @@ export const apiClient = {
   async createQuotation(
     tenantId: string,
     data: {
-      request_id: string;
+      quotation_type?: 'STANDALONE' | 'REQUEST_BASED';
+      request_id?: string | null;
       client_id: string;
       valid_until: string;
       currency?: string;
       discount_amount?: number;
       remarks?: string;
       items: {
-        request_item_id: string;
+        request_item_id?: string | null;
         item_id: string;
         description?: string;
         quantity: number;
@@ -4403,43 +4425,37 @@ export const apiClient = {
     },
     userId = 'usr-acme-lab-tech'
   ): Promise<Quotation> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/quotations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
     const client = memoryDb.clients.find((c) => c.id === data.client_id && (tenantId === 'all' || c.tenant_id === tenantId));
     if (!client) throw new Error('Client not found or tenant context invalid');
 
-    const request = memoryDb.calibrationRequests.find((r) => r.id === data.request_id && (tenantId === 'all' || r.tenant_id === tenantId));
-    if (!request) throw new Error('Calibration request not found');
+    const quotationType = data.quotation_type || (data.request_id ? 'REQUEST_BASED' : 'STANDALONE');
 
-    if (request.client_id !== data.client_id) {
-      throw new Error('Client mismatch: Calibration request does not belong to the selected Client');
+    let request = null;
+    if (data.request_id) {
+      request = memoryDb.calibrationRequests.find((r) => r.id === data.request_id && (tenantId === 'all' || r.tenant_id === tenantId)) || null;
     }
-
-    const eligibleItems = await this.getEligibleRequestItemsForQuotation(data.request_id, tenantId);
-    if (eligibleItems.length === 0) {
-      throw new Error('No eligible calibrated items available for quotation in this request');
-    }
-
-    // Validate item uniqueness and eligibility
-    const selectedItemIds = new Set<string>();
-    const createdQuotationItems: QuotationItem[] = [];
-    let subtotal = 0;
-    let totalTax = 0;
 
     const quoId = `quo-${Date.now()}`;
     const quoNumber = `QUO-2026-${String(memoryDb.quotations.length + 1).padStart(6, '0')}`;
     const now = new Date().toISOString();
 
+    let subtotal = 0;
+    let totalTax = 0;
+    const createdQuotationItems: QuotationItem[] = [];
+
     for (const itemInput of data.items) {
-      if (selectedItemIds.has(itemInput.request_item_id)) {
-        throw new Error(`Duplicate quotation item line for request item ${itemInput.request_item_id}`);
-      }
-      selectedItemIds.add(itemInput.request_item_id);
-
-      const eligible = eligibleItems.find((e) => e.request_item_id === itemInput.request_item_id);
-      if (!eligible) {
-        throw new Error(`Item ${itemInput.request_item_id} is not eligible for quotation`);
-      }
-
-      const standardCost = eligible.standard_cost;
+      const itemMaster = memoryDb.items.find((i) => i.id === itemInput.item_id);
+      const standardCost = itemMaster?.standard_cost || 1000.0;
       const isOverride = itemInput.override_cost !== undefined && itemInput.override_cost !== null && itemInput.override_cost !== standardCost;
 
       if (isOverride && (!itemInput.override_reason || !itemInput.override_reason.trim())) {
@@ -4460,10 +4476,11 @@ export const apiClient = {
         id: `qi-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         tenant_id: tenantId,
         quotation_id: quoId,
-        request_item_id: itemInput.request_item_id,
+        request_item_id: itemInput.request_item_id || null,
         item_id: itemInput.item_id,
-        description: itemInput.description || `Calibration of ${eligible.item_name}`,
+        description: itemInput.description || `Calibration service for ${itemMaster?.item_name || 'Item'}`,
         quantity: qty,
+        consumed_quantity: 0,
         standard_cost: standardCost,
         override_cost: isOverride ? itemInput.override_cost : null,
         final_unit_cost: finalUnitCost,
@@ -4475,9 +4492,7 @@ export const apiClient = {
         override_at: isOverride ? now : null,
         created_at: now,
         updated_at: now,
-        item: eligible.item,
-        request_item: eligible.request_item,
-        calibration_source: eligible.calibration_source,
+        item: itemMaster,
       };
 
       createdQuotationItems.push(qi);
@@ -4492,7 +4507,8 @@ export const apiClient = {
       organization_id: client.organization_id || null,
       sub_org_id: client.sub_org_id || null,
       quotation_number: quoNumber,
-      request_id: data.request_id,
+      quotation_type: quotationType,
+      request_id: data.request_id || null,
       client_id: data.client_id,
       quotation_date: now.split('T')[0],
       valid_until: data.valid_until,
@@ -4529,6 +4545,16 @@ export const apiClient = {
     data: { remarks?: string },
     userId = 'usr-acme-lab-tech'
   ): Promise<Quotation> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/quotations/${quotationId}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
     const qIdx = memoryDb.quotations.findIndex((q) => q.id === quotationId && (tenantId === 'all' || q.tenant_id === tenantId));
     if (qIdx < 0) throw new Error('Quotation not found');
 
@@ -4570,6 +4596,17 @@ export const apiClient = {
     data: { action: 'APPROVE' | 'REJECT'; remarks?: string },
     userId = 'usr-acme-lab-mgr'
   ): Promise<Quotation> {
+    if (isSupabaseConfigured && supabase) {
+      const endpoint = data.action === 'APPROVE' ? 'approve' : 'reject';
+      const res = await fetch(`${API_BASE}/quotations/${quotationId}/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
     const qIdx = memoryDb.quotations.findIndex((q) => q.id === quotationId && (tenantId === 'all' || q.tenant_id === tenantId));
     if (qIdx < 0) throw new Error('Quotation not found');
 
@@ -4587,7 +4624,7 @@ export const apiClient = {
 
     const updatedQuo: Quotation = {
       ...quo,
-      status: isApprove ? 'APPROVED' : 'DRAFT',
+      status: isApprove ? 'APPROVED' : 'REJECTED',
       approved_by: isApprove ? userId : quo.approved_by,
       approved_at: isApprove ? now : quo.approved_at,
       updated_at: now,
@@ -4622,6 +4659,15 @@ export const apiClient = {
     quotationId: string,
     _userId = 'usr-acme-admin'
   ): Promise<Quotation> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/quotations/${quotationId}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
     const qIdx = memoryDb.quotations.findIndex((q) => q.id === quotationId && (tenantId === 'all' || q.tenant_id === tenantId));
     if (qIdx < 0) throw new Error('Quotation not found');
 
@@ -4651,6 +4697,16 @@ export const apiClient = {
     data: { response: 'APPROVED' | 'REJECTED'; remarks?: string; reference_number?: string },
     _userId = 'usr-acme-admin'
   ): Promise<Quotation> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/quotations/${quotationId}/client-response`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
     const qIdx = memoryDb.quotations.findIndex((q) => q.id === quotationId && (tenantId === 'all' || q.tenant_id === tenantId));
     if (qIdx < 0) throw new Error('Quotation not found');
 
@@ -4689,6 +4745,15 @@ export const apiClient = {
     quotationId: string,
     userId = 'usr-acme-admin'
   ): Promise<Quotation> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/quotations/${quotationId}/revise`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
     const quo = await this.getQuotationDetails(quotationId, tenantId);
     if (!quo) throw new Error('Quotation not found');
 
@@ -4733,6 +4798,165 @@ export const apiClient = {
     memoryDb.notify();
 
     return this.getQuotationDetails(revId, tenantId);
+  },
+
+  async createRequestFromQuotation(
+    tenantId: string,
+    quotationId: string,
+    itemsToConvert: { quotation_item_id: string; quantity: number }[]
+  ): Promise<{ requestId: string; requestNumber: string }> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/quotations/${quotationId}/create-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+        body: JSON.stringify({ items: itemsToConvert }),
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
+    const quo = memoryDb.quotations.find((q) => q.id === quotationId && (tenantId === 'all' || q.tenant_id === tenantId));
+    if (!quo) throw new Error('Quotation not found');
+
+    const reqId = `req-${Date.now()}`;
+    const reqNo = `REQ-2026-${String(memoryDb.calibrationRequests.length + 1).padStart(6, '0')}`;
+    const now = new Date().toISOString();
+
+    const newReq: CalibrationRequest = {
+      id: reqId,
+      tenant_id: quo.tenant_id,
+      organization_id: quo.organization_id || null,
+      sub_org_id: quo.sub_org_id || null,
+      request_number: reqNo,
+      client_id: quo.client_id || '',
+      collection_agent_id: quo.created_by || 'usr-acme-admin',
+      collection_date: now.split('T')[0],
+      priority: 'NORMAL',
+      status: 'CREATED',
+      created_by: quo.created_by || 'usr-acme-admin',
+      created_at: now,
+      updated_at: now,
+      client: quo.client,
+      items: [],
+    };
+
+    memoryDb.calibrationRequests.unshift(newReq);
+
+    for (const item of itemsToConvert) {
+      const qItem = memoryDb.quotationItems.find((qi) => qi.id === item.quotation_item_id);
+      if (qItem) {
+        qItem.consumed_quantity = (qItem.consumed_quantity || 0) + item.quantity;
+        const ri: RequestItem = {
+          id: `ri-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          tenant_id: quo.tenant_id,
+          request_id: reqId,
+          item_id: qItem.item_id,
+          requested_quantity: item.quantity,
+          item_available: 'YES',
+          created_at: now,
+          updated_at: now,
+        };
+        memoryDb.requestItems.push(ri);
+      }
+    }
+
+    memoryDb.addAudit(tenantId, 'QUOTATION_REQUEST_CREATED', 'calibration_requests', reqId, { quotation_id: quotationId });
+    memoryDb.notify();
+
+    return { requestId: reqId, requestNumber: reqNo };
+  },
+
+  async getClientQuotationHistory(clientId: string, tenantId: string): Promise<Quotation[]> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/clients/${clientId}/quotation-history`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
+    return memoryDb.quotations
+      .filter((q) => q.client_id === clientId && (tenantId === 'all' || q.tenant_id === tenantId))
+      .map((q) => ({
+        ...q,
+        items: memoryDb.quotationItems.filter((qi) => qi.quotation_id === q.id),
+      }));
+  },
+
+  async getClientHistory(clientId: string, tenantId: string): Promise<{ requests: any[]; quotations: any[]; invoices: any[] }> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/clients/${clientId}/history`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
+    const reqs = memoryDb.calibrationRequests
+      .filter((r) => r.client_id === clientId && (tenantId === 'all' || r.tenant_id === tenantId))
+      .map((r) => ({
+        id: r.id,
+        reference_number: r.request_number,
+        date: r.created_at,
+        status: r.status,
+        type: 'Calibration Request',
+      }));
+
+    const quos = memoryDb.quotations
+      .filter((q) => q.client_id === clientId && (tenantId === 'all' || q.tenant_id === tenantId))
+      .map((q) => ({
+        id: q.id,
+        reference_number: q.quotation_number,
+        date: q.created_at,
+        status: q.status,
+        quotation_type: q.quotation_type || (q.request_id ? 'REQUEST_BASED' : 'STANDALONE'),
+        total_amount: q.total_amount,
+        type: 'Quotation',
+      }));
+
+    const invs = memoryDb.invoices
+      .filter((i) => i.client_id === clientId && (tenantId === 'all' || i.tenant_id === tenantId))
+      .map((i) => ({
+        id: i.id,
+        reference_number: i.invoice_number,
+        date: i.created_at,
+        status: i.status,
+        total_amount: i.total_amount,
+        type: 'Invoice',
+      }));
+
+    return { requests: reqs, quotations: quos, invoices: invs };
+  },
+
+  async getVendorHistory(vendorId: string, tenantId: string): Promise<{ purchase_orders: any[]; outsource_requests: any[]; calibration_records: any[] }> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/vendors/${vendorId}/history`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      const json = await res.json();
+      if (json.success) return json.data;
+    }
+
+    const pos = memoryDb.purchaseOrders
+      .filter((p) => p.vendor_id === vendorId && (tenantId === 'all' || p.tenant_id === tenantId))
+      .map((p) => ({
+        id: p.id,
+        po_number: p.po_number,
+        date: p.created_at,
+        status: p.status,
+        total_cost: p.total_amount,
+      }));
+
+    const outs = memoryDb.vendorOutsourceRequests
+      .filter((o) => o.vendor_id === vendorId && (tenantId === 'all' || o.tenant_id === tenantId))
+      .map((o) => ({
+        id: o.id,
+        request_item_id: o.request_item_id,
+        outsource_status: o.outsource_status,
+        dispatch_date: o.created_at,
+      }));
+
+    return { purchase_orders: pos, outsource_requests: outs, calibration_records: [] };
   },
 
   // =========================================================================
@@ -4817,7 +5041,7 @@ export const apiClient = {
 
     existingInvoices.forEach((inv) => {
       const items = memoryDb.invoiceItems.filter((ii) => ii.invoice_id === inv.id);
-      items.forEach((ii) => invoicedReqItemIds.add(ii.request_item_id));
+      items.forEach((ii) => { if (ii.request_item_id) invoicedReqItemIds.add(ii.request_item_id); });
     });
 
     const eligible = [];
@@ -4825,8 +5049,8 @@ export const apiClient = {
 
     for (const qi of quoItems) {
       const item = memoryDb.items.find((i) => i.id === qi.item_id);
-      const requestItem = memoryDb.requestItems.find((ri) => ri.id === qi.request_item_id);
-      const isAlreadyInvoiced = invoicedReqItemIds.has(qi.request_item_id);
+      const requestItem = qi.request_item_id ? memoryDb.requestItems.find((ri) => ri.id === qi.request_item_id) : null;
+      const isAlreadyInvoiced = qi.request_item_id ? invoicedReqItemIds.has(qi.request_item_id) : false;
 
       const row = {
         quotation_item_id: qi.id,
@@ -4869,9 +5093,9 @@ export const apiClient = {
       urgent_reason?: string;
       remarks?: string;
       items: {
-        request_item_id: string;
+        request_item_id?: string | null;
         item_id: string;
-        quotation_item_id?: string;
+        quotation_item_id?: string | null;
         description?: string;
         quantity: number;
         unit_price?: number;
@@ -4906,14 +5130,15 @@ export const apiClient = {
     const now = new Date().toISOString();
 
     for (const itemInput of data.items) {
-      if (selectedItemIds.has(itemInput.request_item_id)) {
-        throw new Error(`Duplicate line item submission for request item ${itemInput.request_item_id}`);
+      const lineKey = itemInput.request_item_id || itemInput.quotation_item_id || itemInput.item_id;
+      if (selectedItemIds.has(lineKey)) {
+        throw new Error(`Duplicate line item submission for item ${lineKey}`);
       }
-      selectedItemIds.add(itemInput.request_item_id);
+      selectedItemIds.add(lineKey);
 
-      const eligible = eligible_items.find((e) => e.request_item_id === itemInput.request_item_id);
+      const eligible = eligible_items.find((e) => (itemInput.quotation_item_id && e.quotation_item_id === itemInput.quotation_item_id) || (itemInput.request_item_id && e.request_item_id === itemInput.request_item_id));
       if (!eligible) {
-        throw new Error(`Item ${itemInput.request_item_id} is already invoiced or not eligible for this quotation (HTTP 409 Conflict)`);
+        throw new Error(`Item ${lineKey} is already invoiced or not eligible for this quotation (HTTP 409 Conflict)`);
       }
 
       const unitPrice = itemInput.unit_price !== undefined ? itemInput.unit_price : eligible.unit_price;

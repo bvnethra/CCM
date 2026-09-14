@@ -54,6 +54,8 @@ const AppContent: React.FC = () => {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [selectedDispatchId, setSelectedDispatchId] = useState<string | null>(null);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [prefillClientId, setPrefillClientId] = useState<string | undefined>(undefined);
+  const [prefillItemId, setPrefillItemId] = useState<string | undefined>(undefined);
 
   // Check for public client signing URL route /client-sign/invoice/:requestReference
   const path = typeof window !== 'undefined' ? window.location.pathname : '';
@@ -162,6 +164,11 @@ const AppContent: React.FC = () => {
         {currentView === 'calibration-due-list' && (
           <CalibrationDueListPage
             onCreateRequest={() => setCurrentView('calibration-requests')}
+            onCreateQuotation={(cId, iId) => {
+              setPrefillClientId(cId);
+              setPrefillItemId(iId);
+              setCurrentView('quotation-create');
+            }}
           />
         )}
         {currentView === 'service-requests' && (
@@ -213,11 +220,17 @@ const AppContent: React.FC = () => {
               setSelectedQuotationId(id);
               setCurrentView('quotation-detail');
             }}
-            onCreateNew={() => setCurrentView('quotation-create')}
+            onCreateNew={() => {
+              setPrefillClientId(undefined);
+              setPrefillItemId(undefined);
+              setCurrentView('quotation-create');
+            }}
           />
         )}
         {currentView === 'quotation-create' && (
           <CreateQuotationPage
+            initialClientId={prefillClientId}
+            initialItemId={prefillItemId}
             onBack={() => setCurrentView('quotations')}
             onSuccess={(id) => {
               setSelectedQuotationId(id);
