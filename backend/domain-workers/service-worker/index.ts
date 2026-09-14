@@ -621,3 +621,73 @@ serviceWorker.post('/service-requests/:id/return-to-calibration', requirePermiss
     message: 'Item returned to calibration queue. Ready for new calibration cycle.',
   });
 });
+
+// ============================================================================
+// 10. STEP 20: RECORD / EDIT SERVICE COMMERCIAL CHARGES
+// ============================================================================
+serviceWorker.post('/service-requests/:id/commercial-charge', requirePermission('service.charge.create'), async (c) => {
+  const user = c.get('user');
+  const tenantId = user.tenantId;
+  const id = c.req.param('id');
+  const body = await c.req.json();
+
+  const unitCost = parseFloat(body.service_unit_cost) || 0;
+  const quantity = parseInt(body.service_quantity) || 1;
+  const taxRate = parseFloat(body.service_tax_rate) !== undefined ? parseFloat(body.service_tax_rate) : 18.00;
+  const discountAmount = parseFloat(body.service_discount_amount) || 0;
+
+  // Server-side calculation (source of truth)
+  const subtotal = unitCost * quantity;
+  const netSubtotal = Math.max(0, subtotal - discountAmount);
+  const taxAmount = (netSubtotal * taxRate) / 100;
+  const totalAmount = netSubtotal + taxAmount;
+
+  const supabase = getSupabase(c);
+
+  const { data: serviceReq, error: fetchErr } = await supabase
+    .from('service_requests')
+    .select('*')
+    .eq('id', id)
+    .eq('tenant_id', tenantId)
+    .single();
+
+  if (fetchErr || !serviceReq) {
+    return c.json({ success: false, error: 'Service request not found or access denied' }, 404);
+  }
+
+  const { data: updated, error: updateErr } = await supabase
+    .from('service_requests')
+    .update({
+      service_unit_cost: unitCost,
+      service_quantity: quantity,
+      service_tax_rate: taxRate,
+      service_tax_amount: taxAmount,
+      service_discount_amount: discountAmount,
+      service_total_amount: totalAmount,
+      approved_service_cost: totalAmount, // Default approved cost matches estimated total
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (updateErr) {
+    return c.json({ success: false, error: updateErr.message }, 500);
+  }
+
+  await logAuditEvent(supabase, {
+    tenantId,
+    userId: user.userId,
+    action: 'SERVICE_CHARGE_CREATED',
+    resourceType: 'service_requests',
+    resourceId: id,
+    newValues: { service_unit_cost: unitCost, quantity, taxAmount, totalAmount },
+  });
+
+  return c.json({
+    success: true,
+    data: updated,
+    message: 'Service commercial charges successfully recorded and calculated server-side.',
+  });
+});
+

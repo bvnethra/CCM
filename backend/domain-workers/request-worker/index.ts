@@ -1034,3 +1034,121 @@ requestWorker.post('/calibration-requests/sync-offline-drafts', requirePermissio
   });
 });
 
+// ============================================================================
+// 11. STEP 20: GET REQUEST COMMERCIAL SUMMARY BREAKDOWN
+// ============================================================================
+requestWorker.get('/calibration-requests/:requestId/commercial-summary', async (c) => {
+  const user = c.get('user');
+  const requestId = c.req.param('requestId');
+  const supabase = getSupabase(c);
+
+  const canViewVendorCost =
+    user.permissions.includes('vendor.cost.view') ||
+    user.permissions.includes('*') ||
+    user.role === 'tenant_admin' ||
+    user.role === 'manager';
+
+  // 1. Fetch Request & Items
+  const { data: request, error: reqErr } = await supabase
+    .from('calibration_requests')
+    .select(`
+      *,
+      items:request_items(
+        id, item_id, requested_quantity,
+        item:item_masters(id, item_code, item_name, standard_cost)
+      )
+    `)
+    .eq('id', requestId)
+    .eq('tenant_id', user.tenantId)
+    .single();
+
+  if (reqErr || !request) {
+    return c.json({ success: false, error: 'Request not found' }, 404);
+  }
+
+  // 2. Fetch Quotations (Request-based or Standalone linked)
+  const { data: quotations } = await supabase
+    .from('quotations')
+    .select(`
+      *,
+      items:quotation_items(*)
+    `)
+    .eq('request_id', requestId)
+    .eq('tenant_id', user.tenantId);
+
+  // 3. Fetch Service Requests
+  const { data: serviceRequests } = await supabase
+    .from('service_requests')
+    .select('*')
+    .eq('request_id', requestId)
+    .eq('tenant_id', user.tenantId);
+
+  // 4. Fetch Vendor Outsource Requests
+  const { data: outsourceRequests } = await supabase
+    .from('vendor_outsource_requests')
+    .select('*')
+    .eq('request_id', requestId)
+    .eq('tenant_id', user.tenantId);
+
+  // Calculate Breakdown Server-Side
+  let calibrationCharges = 0;
+  let serviceCharges = 0;
+  let outsourcingClientCharges = 0;
+  let internalVendorCost = 0;
+
+  // Calibration charges from quotations or item master
+  if (quotations && quotations.length > 0) {
+    const activeQuotation = quotations[0];
+    calibrationCharges = activeQuotation.subtotal || 0;
+  } else {
+    (request.items || []).forEach((item: any) => {
+      const cost = item.item?.standard_cost || 0;
+      calibrationCharges += cost * (item.requested_quantity || 1);
+    });
+  }
+
+  // Approved Service Charges
+  (serviceRequests || []).forEach((srv: any) => {
+    if (srv.service_status === 'APPROVED' || srv.service_status === 'SERVICE_COMPLETED') {
+      serviceCharges += srv.approved_service_cost || srv.service_total_amount || 0;
+    }
+  });
+
+  // Outsourcing Charges
+  (outsourceRequests || []).forEach((out: any) => {
+    outsourcingClientCharges += out.client_charge || 0;
+    internalVendorCost += out.vendor_cost || 0;
+  });
+
+  const subtotal = calibrationCharges + serviceCharges + outsourcingClientCharges;
+  const taxRate = 18.0;
+  const taxAmount = (subtotal * taxRate) / 100;
+  const grandTotal = subtotal + taxAmount;
+
+  const responseData: any = {
+    request_id: requestId,
+    request_number: request.request_number,
+    calibration_charges: calibrationCharges,
+    service_charges: serviceCharges,
+    outsourcing_client_charges: outsourcingClientCharges,
+    other_charges: 0,
+    subtotal,
+    tax_rate: taxRate,
+    tax_amount: taxAmount,
+    discount_amount: 0,
+    grand_total: grandTotal,
+  };
+
+  // Vendor cost protection: strictly conceal unless user has explicit vendor.cost.view permission
+  if (canViewVendorCost) {
+    responseData.internal_vendor_cost = internalVendorCost;
+    responseData.internal_margin = subtotal - internalVendorCost;
+  }
+
+  return c.json({
+    success: true,
+    data: responseData,
+  });
+});
+
+

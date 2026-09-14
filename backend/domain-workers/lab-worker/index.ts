@@ -741,3 +741,197 @@ labWorker.get('/lab/assignments/:requestId', requirePermission('lab.request.view
 
   return c.json({ success: true, data: assignments || [] });
 });
+
+// ============================================================================
+// 10. STEP 20: CONFIRM LAB RECEIPT (RECEIVED_IN_LAB)
+// ============================================================================
+labWorker.post('/lab/requests/:requestId/receive', requirePermission('lab.receipt.confirm'), async (c) => {
+  const user = c.get('user');
+  const requestId = c.req.param('requestId');
+  const body = await c.req.json().catch(() => ({}));
+
+  const receivedQuantity = parseInt(body.received_quantity) || 1;
+  const expectedQuantity = parseInt(body.expected_quantity) || receivedQuantity;
+  const receiptRemarks = body.remarks || body.receipt_remarks || 'Physical equipment received in lab';
+  const proofDocumentId = body.receipt_proof_document_id || null;
+
+  const supabase = getSupabase(c);
+
+  const { data: request, error: fetchErr } = await supabase
+    .from('calibration_requests')
+    .select('*')
+    .eq('id', requestId)
+    .eq('tenant_id', user.tenantId)
+    .single();
+
+  if (fetchErr || !request) {
+    return c.json({ success: false, error: 'Request not found or access denied' }, 404);
+  }
+
+  const timestamp = new Date().toISOString();
+
+  // Create Lab Receipt record
+  const { data: receipt, error: receiptErr } = await supabase
+    .from('lab_receipts')
+    .insert({
+      tenant_id: user.tenantId,
+      organization_id: user.organizationId,
+      sub_org_id: user.subOrgId,
+      request_id: requestId,
+      received_by: user.userId,
+      received_at: timestamp,
+      receipt_status: 'RECEIVED',
+      received_quantity: receivedQuantity,
+      expected_quantity: expectedQuantity,
+      receipt_remarks: receiptRemarks,
+      receipt_proof_document_id: proofDocumentId,
+    })
+    .select()
+    .single();
+
+  if (receiptErr) {
+    return c.json({ success: false, error: receiptErr.message }, 500);
+  }
+
+  // Update calibration request status to RECEIVED_IN_LAB
+  await supabase
+    .from('calibration_requests')
+    .update({ status: 'RECEIVED_IN_LAB', updated_at: timestamp })
+    .eq('id', requestId);
+
+  // Status history & audit
+  await supabase.from('request_status_history').insert({
+    tenant_id: user.tenantId,
+    request_id: requestId,
+    previous_status: request.status,
+    new_status: 'RECEIVED_IN_LAB',
+    changed_by: user.userId,
+    remarks: receiptRemarks,
+    source_module: 'lab-worker-receipt',
+  });
+
+  await logAuditEvent(supabase, {
+    tenantId: user.tenantId,
+    userId: user.userId,
+    action: 'LAB_RECEIPT_CONFIRMED',
+    resourceType: 'calibration_requests',
+    resourceId: requestId,
+    oldValues: { status: request.status },
+    newValues: { status: 'RECEIVED_IN_LAB', receipt_id: receipt.id },
+  });
+
+  return c.json({
+    success: true,
+    data: receipt,
+    message: 'Equipment receipt successfully confirmed. Request moved to RECEIVED_IN_LAB.',
+  });
+});
+
+// ============================================================================
+// 11. STEP 20: RECORD LAB RECEIPT DISCREPANCY
+// ============================================================================
+labWorker.post('/lab/requests/:requestId/receipt-discrepancy', requirePermission('lab.receipt.discrepancy'), async (c) => {
+  const user = c.get('user');
+  const requestId = c.req.param('requestId');
+  const body = await c.req.json().catch(() => ({}));
+
+  const discrepancyRemarks = body.remarks || body.reason;
+  if (!discrepancyRemarks) {
+    return c.json({ success: false, error: 'Mandatory discrepancy reason/remarks required' }, 400);
+  }
+
+  const receivedQuantity = parseInt(body.received_quantity) || 0;
+  const expectedQuantity = parseInt(body.expected_quantity) || 1;
+  const proofDocumentId = body.receipt_proof_document_id || null;
+
+  const supabase = getSupabase(c);
+
+  const { data: request, error: fetchErr } = await supabase
+    .from('calibration_requests')
+    .select('*')
+    .eq('id', requestId)
+    .eq('tenant_id', user.tenantId)
+    .single();
+
+  if (fetchErr || !request) {
+    return c.json({ success: false, error: 'Request not found or access denied' }, 404);
+  }
+
+  const timestamp = new Date().toISOString();
+
+  const { data: receipt, error: receiptErr } = await supabase
+    .from('lab_receipts')
+    .insert({
+      tenant_id: user.tenantId,
+      organization_id: user.organizationId,
+      sub_org_id: user.subOrgId,
+      request_id: requestId,
+      received_by: user.userId,
+      received_at: timestamp,
+      receipt_status: 'DISCREPANCY',
+      received_quantity: receivedQuantity,
+      expected_quantity: expectedQuantity,
+      receipt_remarks: discrepancyRemarks,
+      receipt_proof_document_id: proofDocumentId,
+    })
+    .select()
+    .single();
+
+  if (receiptErr) {
+    return c.json({ success: false, error: receiptErr.message }, 500);
+  }
+
+  await supabase
+    .from('calibration_requests')
+    .update({ status: 'DISCREPANCY', updated_at: timestamp })
+    .eq('id', requestId);
+
+  await supabase.from('request_status_history').insert({
+    tenant_id: user.tenantId,
+    request_id: requestId,
+    previous_status: request.status,
+    new_status: 'DISCREPANCY',
+    changed_by: user.userId,
+    remarks: `Receipt Discrepancy logged: ${discrepancyRemarks}`,
+    source_module: 'lab-worker-receipt',
+  });
+
+  await logAuditEvent(supabase, {
+    tenantId: user.tenantId,
+    userId: user.userId,
+    action: 'LAB_RECEIPT_DISCREPANCY',
+    resourceType: 'calibration_requests',
+    resourceId: requestId,
+    oldValues: { status: request.status },
+    newValues: { status: 'DISCREPANCY', remarks: discrepancyRemarks },
+  });
+
+  return c.json({
+    success: true,
+    data: receipt,
+    message: 'Lab receipt discrepancy recorded.',
+  });
+});
+
+// ============================================================================
+// 12. STEP 20: GET LAB RECEIPT FOR REQUEST
+// ============================================================================
+labWorker.get('/lab/requests/:requestId/receipt', requirePermission('lab.receipt.view'), async (c) => {
+  const user = c.get('user');
+  const requestId = c.req.param('requestId');
+  const supabase = getSupabase(c);
+
+  const { data, error } = await supabase
+    .from('lab_receipts')
+    .select('*')
+    .eq('request_id', requestId)
+    .eq('tenant_id', user.tenantId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    return c.json({ success: false, error: error.message }, 500);
+  }
+
+  return c.json({ success: true, data: data || [] });
+});
+

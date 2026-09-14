@@ -234,6 +234,7 @@ export type CalibrationRequestStatus =
   | 'CREATED'
   | 'COLLECTED'
   | 'LAB_QUEUE'
+  | 'RECEIVED_IN_LAB'
   | 'VERIFICATION'
   | 'VERIFIED'
   | 'CALIBRATION'
@@ -256,9 +257,44 @@ export type CalibrationRequestStatus =
   | 'CANCELLED';
 
 export type InvoiceMode = 'ITEMS_AND_INVOICE' | 'INVOICE_ONLY';
+export type InvoiceLineType = 'CALIBRATION' | 'SERVICE' | 'OUTSOURCING' | 'OTHER';
+export type ReceiptStatus = 'PENDING' | 'RECEIVED' | 'DISCREPANCY' | 'REJECTED';
 export type OfflineSyncStatus = 'LOCAL_DRAFT' | 'SYNC_PENDING' | 'SYNCED' | 'SYNC_FAILED';
 export type ItemAvailability = 'YES' | 'NO';
 export type LabAssignmentStatus = 'ACTIVE' | 'REASSIGNED' | 'COMPLETED';
+
+export interface LabReceipt {
+  id: string;
+  tenant_id: string;
+  organization_id?: string | null;
+  sub_org_id?: string | null;
+  request_id: string;
+  received_by: string;
+  received_at: string;
+  receipt_status: ReceiptStatus;
+  received_quantity: number;
+  expected_quantity: number;
+  receipt_remarks?: string | null;
+  receipt_proof_document_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CommercialSummary {
+  request_id: string;
+  request_number: string;
+  calibration_charges: number;
+  service_charges: number;
+  outsourcing_client_charges: number;
+  other_charges: number;
+  subtotal: number;
+  tax_rate: number;
+  tax_amount: number;
+  discount_amount: number;
+  grand_total: number;
+  internal_vendor_cost?: number;
+  internal_margin?: number;
+}
 
 export interface LabRequestAssignment {
   id: string;

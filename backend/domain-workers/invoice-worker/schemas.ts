@@ -1,9 +1,12 @@
 import { z } from 'zod';
 
 export const InvoiceItemInputSchema = z.object({
+  line_type: z.enum(['CALIBRATION', 'SERVICE', 'OUTSOURCING', 'OTHER']).default('CALIBRATION'),
   request_item_id: z.string().uuid().optional().nullable(),
   item_id: z.string().uuid().optional().nullable(),
   quotation_item_id: z.string().uuid().optional().nullable(),
+  service_request_id: z.string().uuid().optional().nullable(),
+  vendor_outsource_request_id: z.string().uuid().optional().nullable(),
   description: z.string().optional(),
   quantity: z.number().int().positive().default(1),
   unit_price: z.number().nonnegative().optional(),

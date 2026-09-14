@@ -62,12 +62,18 @@ export const LabQueuePage: React.FC<LabQueuePageProps> = ({ onOpenIntake, onNavi
   // Modals state
   const [assignModalRequest, setAssignModalRequest] = useState<CalibrationRequest | null>(null);
   const [holdModalRequest, setHoldModalRequest] = useState<CalibrationRequest | null>(null);
+  const [receiveModalRequest, setReceiveModalRequest] = useState<CalibrationRequest | null>(null);
+  const [receivedQty, setReceivedQty] = useState<number>(1);
+  const [expectedQty, setExpectedQty] = useState<number>(1);
+  const [receiptRemarks, setReceiptRemarks] = useState<string>('');
+  const [receiptSubmitting, setReceiptSubmitting] = useState<boolean>(false);
 
   const canViewQueue = hasPermission('lab.queue.view') || currentUser?.role === 'lab_user';
   const canAccept = hasPermission('lab.queue.accept') || currentUser?.role === 'lab_user';
   const canAssign = hasPermission('lab.queue.assign') || currentUser?.role === 'tenant_admin' || currentUser?.role === 'super_admin';
   const canHold = hasPermission('lab.queue.hold') || currentUser?.role === 'lab_user' || currentUser?.role === 'tenant_admin';
   const canStartVerification = hasPermission('lab.request.start_verification') || currentUser?.role === 'lab_user';
+  const canConfirmReceipt = hasPermission('lab.receipt.confirm') || currentUser?.role === 'lab_user' || currentUser?.role === 'tenant_admin';
 
   const loadQueueData = async () => {
     if (!activeTenant) return;
@@ -273,6 +279,26 @@ export const LabQueuePage: React.FC<LabQueuePageProps> = ({ onOpenIntake, onNavi
 
         return (
           <div className="flex items-center justify-end gap-1.5">
+            {/* STEP 20: Receive in Lab Button */}
+            {canConfirmReceipt && (req.status === 'LAB_QUEUE' || req.status === 'COLLECTED') && (
+              <Button
+                variant="primary"
+                size="sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                onClick={() => {
+                  setReceiveModalRequest(req);
+                  const count = req.items?.length || 1;
+                  setExpectedQty(count);
+                  setReceivedQty(count);
+                  setReceiptRemarks('');
+                }}
+                title="Confirm physical equipment receipt in lab"
+              >
+                <Inbox className="w-3.5 h-3.5 mr-1" />
+                Receive
+              </Button>
+            )}
+
             {/* View Details */}
             <Button
               variant="outline"
@@ -568,6 +594,130 @@ export const LabQueuePage: React.FC<LabQueuePageProps> = ({ onOpenIntake, onNavi
             loadQueueData();
           }}
         />
+      )}
+
+      {/* STEP 20: Receive in Lab Modal */}
+      {receiveModalRequest && activeTenant && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Inbox className="w-5 h-5 text-indigo-600" />
+                Physical Lab Receipt Confirmation
+              </h3>
+              <button
+                onClick={() => setReceiveModalRequest(null)}
+                className="text-slate-400 hover:text-slate-600 text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-700">
+              <div className="p-3 bg-slate-50 rounded border border-slate-200 grid grid-cols-2 gap-2">
+                <div>Request: <span className="font-bold text-slate-900">{receiveModalRequest.request_number}</span></div>
+                <div>Client: <span className="font-semibold text-slate-900">{receiveModalRequest.client?.client_name || 'N/A'}</span></div>
+                <div>Priority: <span className="font-semibold text-amber-700">{receiveModalRequest.priority}</span></div>
+                <div>Collection Date: <span className="font-mono">{receiveModalRequest.collection_date}</span></div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Expected Equipment Qty</label>
+                  <Input type="number" readOnly value={expectedQty} className="bg-slate-100 font-bold" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Received Quantity *</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={receivedQty}
+                    onChange={(e) => setReceivedQty(parseInt(e.target.value) || 0)}
+                    className="font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Physical Condition & Inspection Remarks</label>
+                <textarea
+                  className="w-full border border-slate-300 rounded-md p-2 text-xs h-20 focus:ring-1 focus:ring-indigo-500"
+                  placeholder="E.g., All 5 micrometers received in original protective cases with zero physical damage..."
+                  value={receiptRemarks}
+                  onChange={(e) => setReceiptRemarks(e.target.value)}
+                />
+              </div>
+
+              {receivedQty !== expectedQty && (
+                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded text-amber-800 text-[11px] font-medium flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+                  Quantity discrepancy detected! Expected {expectedQty}, received {receivedQty}.
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between border-t pt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  if (!receiptRemarks.trim()) {
+                    alert('Mandatory remarks required when marking discrepancy.');
+                    return;
+                  }
+                  setReceiptSubmitting(true);
+                  try {
+                    const res = await apiClient.recordReceiptDiscrepancy(receiveModalRequest.id, activeTenant.id, {
+                      received_quantity: receivedQty,
+                      expected_quantity: expectedQty,
+                      remarks: receiptRemarks,
+                    });
+                    if (res.success) {
+                      setReceiveModalRequest(null);
+                      setNotification({ message: 'Receipt discrepancy recorded.', type: 'error' });
+                      loadQueueData();
+                    }
+                  } finally {
+                    setReceiptSubmitting(false);
+                  }
+                }}
+                disabled={receiptSubmitting}
+                className="border-amber-300 text-amber-700 hover:bg-amber-50"
+              >
+                Mark Discrepancy
+              </Button>
+
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setReceiveModalRequest(null)}>Cancel</Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={async () => {
+                    setReceiptSubmitting(true);
+                    try {
+                      const res = await apiClient.confirmLabReceipt(receiveModalRequest.id, activeTenant.id, {
+                        received_quantity: receivedQty,
+                        expected_quantity: expectedQty,
+                        remarks: receiptRemarks || 'Confirmed physical equipment receipt in lab.',
+                      });
+                      if (res.success) {
+                        setReceiveModalRequest(null);
+                        setNotification({ message: 'Lab receipt confirmed! Request moved to RECEIVED_IN_LAB.', type: 'success' });
+                        loadQueueData();
+                      }
+                    } finally {
+                      setReceiptSubmitting(false);
+                    }
+                  }}
+                  disabled={receiptSubmitting}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                >
+                  Confirm Receipt
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

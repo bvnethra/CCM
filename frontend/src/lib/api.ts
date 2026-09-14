@@ -6569,6 +6569,78 @@ export const apiClient = {
     return { success: true, data: { checked_at: new Date().toISOString(), issues_found: 0, categories: {} } };
   },
 
+  async confirmLabReceipt(requestId: string, tenantId: string, payload: any): Promise<any> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/lab/requests/${requestId}/receive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+        body: JSON.stringify(payload),
+      });
+      return await res.json();
+    }
+    const req = memoryDb.calibrationRequests.find((r) => r.id === requestId);
+    if (req) req.status = 'RECEIVED_IN_LAB';
+    return { success: true, message: 'Receipt confirmed' };
+  },
+
+  async recordReceiptDiscrepancy(requestId: string, tenantId: string, payload: any): Promise<any> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/lab/requests/${requestId}/receipt-discrepancy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+        body: JSON.stringify(payload),
+      });
+      return await res.json();
+    }
+    const req = memoryDb.calibrationRequests.find((r) => r.id === requestId);
+    if (req) req.status = 'DISCREPANCY';
+    return { success: true, message: 'Receipt discrepancy recorded' };
+  },
+
+  async getLabReceipt(requestId: string, tenantId: string): Promise<any> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/lab/requests/${requestId}/receipt`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      return await res.json();
+    }
+    return { success: true, data: [] };
+  },
+
+  async recordServiceCharge(serviceId: string, tenantId: string, payload: any): Promise<any> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/service-requests/${serviceId}/commercial-charge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+        body: JSON.stringify(payload),
+      });
+      return await res.json();
+    }
+    return { success: true, message: 'Service commercial charge recorded' };
+  },
+
+  async getCommercialSummary(requestId: string, tenantId: string): Promise<any> {
+    if (isSupabaseConfigured && supabase) {
+      const res = await fetch(`${API_BASE}/calibration-requests/${requestId}/commercial-summary`, {
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+      });
+      return await res.json();
+    }
+    return {
+      success: true,
+      data: {
+        request_id: requestId,
+        calibration_charges: 1000,
+        service_charges: 500,
+        outsourcing_client_charges: 1200,
+        subtotal: 2700,
+        tax_amount: 486,
+        grand_total: 3186,
+        internal_vendor_cost: 700,
+      },
+    };
+  },
+
 };
 
 export const api = apiClient;

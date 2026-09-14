@@ -38,6 +38,7 @@ export const RequestDetailsPage: React.FC<RequestDetailsPageProps> = ({
   const [request, setRequest] = useState<CalibrationRequest | null>(null);
   const [timeline, setTimeline] = useState<RequestTimelineEvent[]>([]);
   const [matrix, setMatrix] = useState<ItemProgressRow[]>([]);
+  const [commercialSummary, setCommercialSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
 
@@ -51,14 +52,16 @@ export const RequestDetailsPage: React.FC<RequestDetailsPageProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [reqData, timeData, matrixData] = await Promise.all([
+      const [reqData, timeData, matrixData, commRes] = await Promise.all([
         api.getCalibrationRequest(requestId, tenantId),
         api.getRequestTimeline(requestId, tenantId),
         api.getRequestProgressMatrix(requestId, tenantId),
+        apiClient.getCommercialSummary(requestId, tenantId),
       ]);
       setRequest(reqData);
       setTimeline(timeData);
       setMatrix(matrixData);
+      if (commRes?.success) setCommercialSummary(commRes.data);
     } catch (err) {
       console.error('Failed loading request details:', err);
     } finally {
@@ -364,6 +367,55 @@ export const RequestDetailsPage: React.FC<RequestDetailsPageProps> = ({
           </div>
         </div>
       </div>
+
+      {/* STEP 20 COMMERCIAL SUMMARY BREAKDOWN */}
+      {commercialSummary && (
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+          <div className="flex items-center justify-between border-b pb-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              Request Commercial Financial Summary
+            </h3>
+            <span className="text-[11px] font-mono text-slate-500">Server Calculated</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4 text-xs">
+            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+              <p className="text-[10px] uppercase font-semibold text-slate-400">Calibration</p>
+              <p className="font-mono font-bold text-slate-900 mt-0.5">₹{(commercialSummary.calibration_charges || 0).toFixed(2)}</p>
+            </div>
+
+            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+              <p className="text-[10px] uppercase font-semibold text-slate-400">Approved Service</p>
+              <p className="font-mono font-bold text-slate-900 mt-0.5">₹{(commercialSummary.service_charges || 0).toFixed(2)}</p>
+            </div>
+
+            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+              <p className="text-[10px] uppercase font-semibold text-slate-400">Outsourcing Client</p>
+              <p className="font-mono font-bold text-slate-900 mt-0.5">₹{(commercialSummary.outsourcing_client_charges || 0).toFixed(2)}</p>
+            </div>
+
+            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+              <p className="text-[10px] uppercase font-semibold text-slate-400">Tax ({commercialSummary.tax_rate || 18}%)</p>
+              <p className="font-mono font-bold text-slate-900 mt-0.5">₹{(commercialSummary.tax_amount || 0).toFixed(2)}</p>
+            </div>
+
+            <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-200">
+              <p className="text-[10px] uppercase font-bold text-blue-700">Grand Total</p>
+              <p className="font-mono font-extrabold text-blue-900 text-sm mt-0.5">₹{(commercialSummary.grand_total || 0).toFixed(2)}</p>
+            </div>
+
+            {/* Vendor Internal Cost: strictly protected by vendor.cost.view permission */}
+            {commercialSummary.internal_vendor_cost !== undefined && (
+              <div className="p-2.5 rounded-lg bg-purple-50 border border-purple-200">
+                <p className="text-[10px] uppercase font-bold text-purple-700">Internal Vendor Cost</p>
+                <p className="font-mono font-extrabold text-purple-900 text-sm mt-0.5">₹{(commercialSummary.internal_vendor_cost || 0).toFixed(2)}</p>
+                <p className="text-[9px] text-purple-600 mt-0.5">Margin: ₹{(commercialSummary.internal_margin || 0).toFixed(2)}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Main Grid: Item Progress Matrix & Chronological Timeline */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
