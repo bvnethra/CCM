@@ -1,4 +1,4 @@
-﻿-- ==============================================================================
+-- ==============================================================================
 -- Calibration Commercial Module (CCM) - Step 1: Multi-Tenant Foundation Schema
 -- Database: Supabase / PostgreSQL 15+
 -- Features: Row Level Security (RLS), Tenancy Isolation, Audit Logging, Cascading
@@ -801,8 +801,8 @@ VALUES
     (
         '44444444-1111-4444-a111-111111111111',
         '11111111-1111-4111-a111-111111111111',
-        '22222222-1111-4222-a111-111111111111',
-        '33333333-1111-4333-a111-111111111111',
+        'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
+        'e1111111-aaaa-4111-aaaa-111111111111',
         'CLI-AERO-001',
         'Aerospace Dynamics India Pvt Ltd',
         'Plot 42, Electronics City Phase 1',
@@ -820,8 +820,8 @@ VALUES
     (
         '44444444-2222-4444-a111-222222222222',
         '11111111-1111-4111-a111-111111111111',
-        '22222222-1111-4222-a111-111111111111',
-        '33333333-2222-4333-a111-222222222222',
+        'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
+        'e1111112-aaaa-4111-aaaa-111111111112',
         'CLI-PHARMA-002',
         'BioHealth Pharma Laboratories',
         '78 BioTech Industrial Corridor',
@@ -839,7 +839,7 @@ VALUES
     (
         '44444444-3333-4444-a111-333333333333',
         '11111111-1111-4111-a111-111111111111',
-        '22222222-2222-4222-a111-222222222222',
+        'bbbbbbbb-1111-4bbb-bbbb-bbbbbbbbbbbb',
         NULL,
         'CLI-AUTO-003',
         'Precision Auto Components Corp',
@@ -858,8 +858,8 @@ VALUES
     -- Apex Metrology Clients (Strict Tenant Isolation)
     (
         '44444444-4444-4444-a111-444444444444',
-        '11111111-2222-4111-a111-222222222222',
-        '22222222-3333-4222-a111-333333333333',
+        '22222222-2222-4222-a222-222222222222',
+        'cccccccc-2222-4ccc-cccc-cccccccccccc',
         NULL,
         'CLI-DEF-101',
         'Zenith Defense Systems Ltd',
@@ -1085,8 +1085,8 @@ VALUES
     (
         '55555555-1111-5555-a111-111111111111',
         '11111111-1111-4111-a111-111111111111',
-        '22222222-1111-4222-a111-111111111111',
-        '33333333-1111-4333-a111-111111111111',
+        'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
+        'e1111111-aaaa-4111-aaaa-111111111111',
         'VEN-NABL-001',
         'National Standard Metrology Labs',
         'Phase 2, Peenya Industrial Area',
@@ -1104,7 +1104,7 @@ VALUES
     (
         '55555555-2222-5555-a111-222222222222',
         '11111111-1111-4111-a111-111111111111',
-        '22222222-1111-4222-a111-111111111111',
+        'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
         NULL,
         'VEN-OPTI-002',
         'Spectra Optical Calibration Services',
@@ -1123,7 +1123,7 @@ VALUES
     (
         '55555555-3333-5555-a111-333333333333',
         '11111111-1111-4111-a111-111111111111',
-        '22222222-2222-4222-a111-222222222222',
+        'bbbbbbbb-1111-4bbb-bbbb-bbbbbbbbbbbb',
         NULL,
         'VEN-MECH-003',
         'AccuTorque Force & Dynamics Calibration',
@@ -1142,8 +1142,8 @@ VALUES
     -- Apex Metrology External Calibration Partner (Strict Tenant Isolation)
     (
         '55555555-4444-5555-a111-444444444444',
-        '11111111-2222-4111-a111-222222222222',
-        '22222222-3333-4222-a111-333333333333',
+        '22222222-2222-4222-a222-222222222222',
+        'cccccccc-2222-4ccc-cccc-cccccccccccc',
         NULL,
         'VEN-AERO-201',
         'Vanguard Precision Avionics Labs',
@@ -1358,8 +1358,8 @@ INSERT INTO public.item_masters (
     'Fluke Hart Scientific',
     '9144',
     'FLK-HS9144-12908',
-    '50 Â°C to 660 Â°C',
-    '0.01 Â°C',
+    '50 °C to 660 °C',
+    '0.01 °C',
     295.00,
     12,
     'Months',

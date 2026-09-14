@@ -207,8 +207,8 @@ VALUES
     (
         '55555555-1111-5555-a111-111111111111',
         '11111111-1111-4111-a111-111111111111',
-        '22222222-1111-4222-a111-111111111111',
-        '33333333-1111-4333-a111-111111111111',
+        'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
+        'e1111111-aaaa-4111-aaaa-111111111111',
         'VEN-NABL-001',
         'National Standard Metrology Labs',
         'Phase 2, Peenya Industrial Area',
@@ -226,7 +226,7 @@ VALUES
     (
         '55555555-2222-5555-a111-222222222222',
         '11111111-1111-4111-a111-111111111111',
-        '22222222-1111-4222-a111-111111111111',
+        'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
         NULL,
         'VEN-OPTI-002',
         'Spectra Optical Calibration Services',
@@ -245,7 +245,7 @@ VALUES
     (
         '55555555-3333-5555-a111-333333333333',
         '11111111-1111-4111-a111-111111111111',
-        '22222222-2222-4222-a111-222222222222',
+        'bbbbbbbb-1111-4bbb-bbbb-bbbbbbbbbbbb',
         NULL,
         'VEN-MECH-003',
         'AccuTorque Force & Dynamics Calibration',
@@ -264,8 +264,8 @@ VALUES
     -- Apex Metrology External Calibration Partner (Strict Tenant Isolation)
     (
         '55555555-4444-5555-a111-444444444444',
-        '11111111-2222-4111-a111-222222222222',
-        '22222222-3333-4222-a111-333333333333',
+        '22222222-2222-4222-a222-222222222222',
+        'cccccccc-2222-4ccc-cccc-cccccccccccc',
         NULL,
         'VEN-AERO-201',
         'Vanguard Precision Avionics Labs',
