@@ -1,0 +1,14 @@
+name = "ccm-api-gateway"
+main = "gateway/index.ts"
+compatibility_date = "2024-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "development"
+SUPABASE_URL = "https://placeholder-project.supabase.co"
+
+# Cloudflare R2 Storage binding configuration
+[[r2_buckets]]
+binding = "CCM_STORAGE"
+bucket_name = "ccm-secure-artifacts"
+preview_bucket_name = "ccm-secure-artifacts-preview"
