@@ -23,14 +23,34 @@ import { StorageService } from '../shared/storage';
 
 const app = new Hono<{ Bindings: WorkerEnv; Variables: { user: AuthenticatedUser } }>();
 
-// 1. CORS Configuration
+// 1. CORS & Request Correlation Middleware
 app.use('*', cors({
   origin: '*',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowHeaders: ['Content-Type', 'Authorization', 'x-tenant-id', 'x-client-role'],
+  allowHeaders: ['Content-Type', 'Authorization', 'x-tenant-id', 'x-client-role', 'x-request-id'],
   exposeHeaders: ['Content-Length', 'x-request-id'],
   maxAge: 86400,
 }));
+
+// Request Correlation ID & Structured Logging Middleware
+app.use('*', async (c, next) => {
+  const reqId = c.req.header('x-request-id') || `req-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+  c.header('x-request-id', reqId);
+  const start = Date.now();
+  await next();
+  const duration = Date.now() - start;
+  const user = c.get('user');
+  console.info(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    requestId: reqId,
+    method: c.req.method,
+    path: c.req.path,
+    status: c.res.status,
+    durationMs: duration,
+    tenantId: user?.tenantId || 'unauthenticated',
+    userId: user?.userId || 'anonymous',
+  }));
+});
 
 // 2. Health & Gateway Diagnostics
 app.get('/', (c) => {

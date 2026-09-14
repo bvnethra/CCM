@@ -1,124 +1,98 @@
-# Calibration Commercial Module (CCM)
-## Step 1: Project Foundation + Tenant / Organization / Sub-Organization
+# Calibration Commercial Module (CCM) — Production Enterprise Application
 
-This repository contains **Step 1** of the Calibration Commercial Module (CCM), an enterprise-grade, multi-tenant metrology and calibration platform designed with strict tenant data isolation, PostgreSQL Row Level Security (RLS), Cloudflare Workers API Gateway, and a modern React + TypeScript + Tailwind CSS dashboard.
+An enterprise-grade, multi-tenant commercial metrology and calibration platform built with strict tenant data isolation, PostgreSQL Row-Level Security (RLS), Cloudflare Workers Edge API Gateway, private Cloudflare R2 object storage, digital canvas signatures, server-side workflow completion engine, operations hub, and an executive React + Vite + Tailwind CSS dashboard.
 
 ---
 
-## 1. Architecture Overview
+## 1. System Architecture
 
-```
-                      [ Client Browser (React + Vite + Tailwind) ]
-                                          |
-                        +-----------------+-----------------+
-                        |                                   |
-                        v                                   v
-             [ Cloudflare Workers API Gateway ]   [ Supabase Client Direct ]
-             * JWT & Tenancy Validation Headers   * Direct RLS Protected
-             * CORS & Rate Limiting Routing       * Supabase Auth
-             * Cloudflare R2 Pre-Signed Tokens    * User Profile Lookups
-                        |                                   |
-                        v                                   v
-             [ Domain Workers: Tenant Worker ]              |
-             * Zod Input Validation                         |
-             * Audit Log Ingestion                          |
-                        |                                   |
-                        +-----------------+-----------------+
-                                          |
-                                          v
-                      [ Supabase / PostgreSQL 15 Database ]
-                      * Row Level Security (RLS) Active
-                      * current_tenant_id() & is_super_admin()
-                      * Tenants -> Organizations -> Sub-Organizations
-                      * Audit Logging Triggers
+```mermaid
+flowchart TD
+    subgraph Client Layer
+        UI[React 18 + Vite + Tailwind CSS]
+        Nav[Global Search / Headers]
+        Sig[Signature Canvas Component]
+    end
+
+    subgraph Edge API Gateway
+        GW[Cloudflare Workers Gateway]
+        AUTH[JWT Session & Auth Worker]
+        RLS_MW[x-tenant-id & RBAC Middleware]
+        LOG[Request Correlation X-Request-ID]
+    end
+
+    subgraph Backend Domain Workers
+        REQ[Request Worker]
+        LAB[Lab Queue & Verification Worker]
+        CAL[Calibration & Certificates Worker]
+        COMM[Quotation & Invoice Worker]
+        DISP[Dispatch & Delivery Worker]
+        ANA[Server Completion & Analytics Worker]
+    end
+
+    subgraph Data & Storage Layer
+        DB[(Supabase PostgreSQL 15)]
+        RLS[PostgreSQL RLS Policies]
+        R2[Cloudflare R2 Private Bucket]
+    end
+
+    UI -->|REST + Bearer JWT| GW
+    GW --> AUTH
+    GW --> RLS_MW
+    RLS_MW --> LOG
+    LOG --> REQ & LAB & CAL & COMM & DISP & ANA
+    REQ & LAB & CAL & COMM & DISP & ANA -->|PostgreSQL Query| DB
+    DB --> RLS
+    CAL & COMM & DISP -->|Signed URLs| R2
 ```
 
 ---
 
 ## 2. Technology Stack
 
-- **Frontend**: React 18, Vite, TypeScript, Tailwind CSS, Lucide Icons, Zod
-- **Backend**: Cloudflare Workers, Hono, REST API Gateway, Domain Workers
-- **Database**: PostgreSQL 15, Supabase, Row Level Security (RLS), Triggers, Functions
-- **Validation & Security**: Zod runtime validation, JWT authentication, RBAC, Multi-Tenant Boundary Enforcement, Audit Trail
-- **Storage**: Cloudflare R2 with isolated multi-tenant folder paths & pre-signed URL architecture
+- **Frontend UI**: React 18, Vite, TypeScript, Tailwind CSS, Lucide Icons, Canvas SignaturePad.
+- **API Gateway & Edge**: Cloudflare Workers, Hono, REST API Gateway, Domain Workers.
+- **Database Backend**: PostgreSQL 15, Supabase, Row-Level Security (RLS), Triggers, Functions.
+- **Storage**: Cloudflare R2 Private Storage with isolated multi-tenant object paths & signed URLs.
+- **Security & Validation**: Zod runtime schemas, JWT authentication, RBAC permission matrix, audit trail logging.
 
 ---
 
-## 3. Database Schema & Multi-Tenant Hierarchy
+## 3. Complete 16-Stage Workflow Pipeline
 
-### Data Model & Relationships
-```
-   +-----------------------------------------------------------+
-   |                       tenants                             |
-   | id (UUID PK), name, code (UQ), status, settings, cr, up   |
-   +-----------------------------------------------------------+
-                                 |
-                                 | 1:N (ON DELETE CASCADE)
-                                 v
-   +-----------------------------------------------------------+
-   |                    organizations                          |
-   | id (UUID PK), tenant_id (FK), name, code, status, cr, up  |
-   | UNIQUE (tenant_id, code)                                  |
-   +-----------------------------------------------------------+
-                                 |
-                                 | 1:N (ON DELETE CASCADE)
-                                 v
-   +-----------------------------------------------------------+
-   |                  sub_organizations                        |
-   | id (UUID PK), tenant_id (FK), organization_id (FK),       |
-   | name, code, status, cr, up                                |
-   | UNIQUE (organization_id, code)                            |
-   +-----------------------------------------------------------+
-```
-
-### Supporting Tables
-- **`user_profiles`**: Links `auth.users(id)` to `tenant_id`, `organization_id`, `role`, and `status`.
-- **`audit_logs`**: Logs all lifecycle events (`action`, `resource_type`, `resource_id`, `old_values`, `new_values`, `ip_address`, `tenant_id`, `user_id`).
-
-### Row Level Security (RLS) Policies
-PostgreSQL RLS is enabled on all tables. Queries automatically resolve tenancy through:
-- `current_tenant_id()`: Inspects `request.jwt.claims ->> 'tenant_id'`, falling back to `user_profiles.tenant_id`.
-- `is_super_admin()`: Verifies if the request carries `super_admin` permissions.
-
-1. **`tenants` table**:
-   - `SELECT`: Restricted to `id = current_tenant_id()` (or super admin).
-   - `INSERT / UPDATE / DELETE`: Super Admin only.
-2. **`organizations` table**:
-   - `SELECT / INSERT / UPDATE / DELETE`: Restricted to `tenant_id = current_tenant_id()`.
-3. **`sub_organizations` table**:
-   - `SELECT / DELETE`: Restricted to `tenant_id = current_tenant_id()`.
-   - `INSERT / UPDATE`: Restricted to `tenant_id = current_tenant_id()` AND validates that `organization_id` belongs to the exact same tenant.
-4. **`audit_logs` table**:
-   - `SELECT`: Restricted to `tenant_id = current_tenant_id()`.
+1. **Tenant & Organization Setup**: Root tenant context (`tenant_id`) with linked organizations and sub-organizations (labs).
+2. **Master Data Management**: Client Master (`clients`), Vendor Master (`vendors`), and Instrument Inventory (`item_masters`).
+3. **Calibration Request Intake**: Collection agent intake, quantity checks, and mandatory availability overrides (`request.override_availability`).
+4. **Lab Queue & Assignment**: Requests transferred to `LAB_QUEUE` and assigned to lead technicians (`lab_request_assignments`).
+5. **Item Verification**: Visual inspection, discrepancy flags, and mandatory document uploads (`item_verifications`, `documents`).
+6. **Calibration Operations**: Environmental logging, measurement point testing, PASS/FAIL result, certificate generation, and `next_due_date` calculation.
+7. **Faulty Service & Repair Flow**: Failed calibration initiates `service_requests`. Client approval is captured, repairs performed, and item re-calibrated.
+8. **Vendor Outsourcing Flow**: External vendor assignment (`vendor_outsourcings`), Purchase Orders (`vendor_pos`), shipment, return, and reintegration.
+9. **Commercial Quotations**: Cost aggregation into commercial quotes (`quotations`), margin calculation, internal and client approval.
+10. **Tax Invoicing**: Tax invoice issuance (`invoices`) with itemized pricing, CGST/SGST/IGST breakdown in Indian Rupees (INR / ₹), and partial/urgent handling.
+11. **Client Digital Invoice Signature**: Public-safe secure client portal canvas signature drawing (`signature_type = 'INVOICE'`).
+12. **Dispatch & Tracking**: Packing dispatch creation (`dispatches`), package barcode assignment, carrier selection, and tracking numbers.
+13. **Client Delivery Confirmation**: Handheld client delivery receipt confirmation and signature (`signature_type = 'DELIVERY'`).
+14. **Completion Engine**: Server-side `evaluateRequestCompletion` checks item stages and transitions request status to `COMPLETED` or `PARTIALLY_COMPLETED`.
+15. **Operations Action Center**: Live monitoring of bottleneck exceptions, faulty items, unsigned invoices, and overdue calibrations.
+16. **Security Audit & Reporting**: Immutable audit logs viewer, global search across reference numbers, and executive CSV reports.
 
 ---
 
-## 4. API Endpoints (Cloudflare Workers API Gateway)
+## 4. Documentation Index
 
-### Base Gateway: `http://localhost:8787/api/v1`
+The repository includes a complete production documentation suite in `docs/`:
 
-| Method | Route | Description | Auth Scope |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/health` | API Gateway health check | Public |
-| `GET` | `/api/v1/tenants` | List accessible tenants | Super Admin / Scoped Tenant |
-| `POST` | `/api/v1/tenants` | Provision new tenant | Super Admin |
-| `GET` | `/api/v1/tenants/:id` | Get tenant details | Scoped Tenant / Super Admin |
-| `PUT` | `/api/v1/tenants/:id` | Update tenant properties | Scoped Tenant / Super Admin |
-| `GET` | `/api/v1/organizations` | List organizations | Tenant Scoped |
-| `POST` | `/api/v1/organizations` | Create organization | Tenant Scoped |
-| `PUT` | `/api/v1/organizations/:id` | Update organization | Tenant Scoped |
-| `DELETE` | `/api/v1/organizations/:id` | Delete organization & cascade | Tenant Scoped |
-| `GET` | `/api/v1/sub-organizations` | List sub-organizations / labs | Tenant Scoped |
-| `POST` | `/api/v1/sub-organizations` | Create sub-organization / lab | Tenant Scoped & Org Verified |
-| `PUT` | `/api/v1/sub-organizations/:id` | Update sub-organization | Tenant Scoped |
-| `DELETE` | `/api/v1/sub-organizations/:id` | Delete sub-organization | Tenant Scoped |
-| `GET` | `/api/v1/audit-logs` | Retrieve audit events | Tenant Scoped |
-| `POST` | `/api/v1/storage/signed-url` | Generate Cloudflare R2 Pre-Signed URL | Tenant Isolated Path |
+- [Database & RLS Architecture](docs/database.md) — Database schema, entity relationships, RLS policies, and performance indexes.
+- [REST API Reference](docs/api.md) — Comprehensive API gateway endpoints, headers, payloads, and response formats.
+- [Workflow Architecture](docs/workflow.md) — Step-by-step workflow state transitions and exception flow diagrams.
+- [Security Architecture](docs/security.md) — JWT auth, RBAC permissions, multi-tenant RLS guarantees, signed URLs, and audit logging.
+- [Production Deployment Guide](docs/deployment.md) — Deployment guide for Cloudflare Workers, Supabase PostgreSQL, R2 storage, and React Vite.
+- [Final QA & Compliance Report](docs/final-qa.md) — QA sign-off report, test matrices, and build verification.
 
 ---
 
-## 5. How to Run the Project
+## 5. Local Setup & Execution
 
 ### Prerequisites
 - Node.js v18+ (tested on Node v24)
@@ -126,65 +100,29 @@ PostgreSQL RLS is enabled on all tables. Queries automatically resolve tenancy t
 
 ### Frontend Dashboard
 ```bash
-# Navigate to frontend directory
 cd frontend
-
-# Install dependencies (already prepared)
 npm install
-
-# Start development server
 npm run dev
 ```
-The frontend will start at `http://localhost:3000`.
+Access dashboard at `http://localhost:3000`.
 
-### Backend Cloudflare Workers API Gateway
+### Backend API Gateway
 ```bash
-# Navigate to backend directory
 cd backend
-
-# Install dependencies (already prepared)
 npm install
-
-# Start local Cloudflare Workers simulator
 npm run dev
 ```
-The API Gateway will start at `http://localhost:8787`.
+Access API Gateway at `http://localhost:8787/api/v1`.
 
----
-
-## 6. Demo Persona Quick-Switching (Testing Multi-Tenancy)
-
-The application includes 3 built-in demo personas for instant zero-dependency testing of multi-tenant security:
-
-1. **Elena Rostova (Super Admin)**:
-   - Full global visibility.
-   - Can view and provision new tenants.
-   - Has access to the **Tenant Switcher** dropdown in the top header to inspect any tenant's isolated data.
-2. **Marcus Vance (Tenant Admin - Acme Calibration Labs)**:
-   - Locked to `Acme Calibration Labs` (`ACME-CAL`).
-   - Can only view and manage Acme's organizations (Aerospace, Medical) and sub-orgs (Pressure & Vacuum, RF, Biomedical).
-   - Cannot see or access Apex Metrology's data.
-3. **Sarah Lin (Tenant Admin - Apex Metrology Group)**:
-   - Locked to `Apex Metrology Group` (`APEX-MET`).
-   - Can only view Apex's organizations (Industrial, Cleanroom) and sub-orgs (CMM, Torque & Force).
-   - Cannot see or access Acme's data.
-
----
-
-## 7. Configuration & Environment Variables
-
-Copy `.env.example` to `.env` in both root, `backend/`, and `frontend/`:
-
-```env
-# Supabase Configuration
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-key
-
-# API Gateway
-VITE_API_GATEWAY_URL=http://localhost:8787/api/v1
-
-# Cloudflare R2
-R2_BUCKET_NAME=ccm-secure-artifacts
-R2_ACCOUNT_ID=your-account-id
+### Production Build & Type Checking
+```bash
+cd frontend
+npm run build
 ```
+Executes `tsc && vite build`. Builds cleanly with 0 compilation errors.
+
+---
+
+## 6. License & Security Notice
+
+Property of Calibration Commercial Module (CCM). All rights reserved. Encrypted JWT credentials, Supabase keys, and Cloudflare R2 secrets must be managed via Cloudflare Secrets and `.env` files (see `.env.example`).
