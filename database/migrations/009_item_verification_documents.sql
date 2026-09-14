@@ -130,20 +130,46 @@ ON CONFLICT (code) DO NOTHING;
 -- 6. MAP STEP 8 PERMISSIONS TO SYSTEM ROLES
 -- Tenant Admin (all Step 8 permissions)
 INSERT INTO public.role_permissions (role_id, permission_id)
-SELECT 'role-02', p.id FROM public.permissions p WHERE p.id IN ('p57', 'p58', 'p59', 'p60', 'p61', 'p62', 'p63', 'p64', 'p65')
+SELECT r.id, p.id
+FROM public.roles r
+CROSS JOIN public.permissions p
+WHERE r.code = 'tenant_admin'
+  AND p.code IN (
+      'verification.view', 'verification.create', 'verification.edit', 
+      'verification.complete', 'verification.override', 'document.view', 
+      'document.upload', 'document.delete', 'document.version'
+  )
 ON CONFLICT DO NOTHING;
 
--- Lab User (core verification, completion, view/upload documents)
+-- Lab User / Operator (core verification, completion, view/upload documents)
 INSERT INTO public.role_permissions (role_id, permission_id)
-SELECT 'role-05', p.id FROM public.permissions p WHERE p.id IN ('p57', 'p58', 'p59', 'p60', 'p62', 'p63', 'p65')
+SELECT r.id, p.id
+FROM public.roles r
+CROSS JOIN public.permissions p
+WHERE r.code IN ('lab_user', 'operator')
+  AND p.code IN (
+      'verification.view', 'verification.create', 'verification.edit', 
+      'verification.complete', 'document.view', 'document.upload', 'document.version'
+  )
 ON CONFLICT DO NOTHING;
 
--- Manager (supervisory verification, override, documents)
+-- Manager / Org Admin (supervisory verification, override, documents)
 INSERT INTO public.role_permissions (role_id, permission_id)
-SELECT 'role-04', p.id FROM public.permissions p WHERE p.id IN ('p57', 'p58', 'p60', 'p61', 'p62', 'p63', 'p65')
+SELECT r.id, p.id
+FROM public.roles r
+CROSS JOIN public.permissions p
+WHERE r.code IN ('manager', 'org_admin')
+  AND p.code IN (
+      'verification.view', 'verification.create', 'verification.complete', 
+      'verification.override', 'document.view', 'document.upload', 'document.version'
+  )
 ON CONFLICT DO NOTHING;
 
--- Organization Admin (view verification, view documents)
+-- Viewer (view verification, view documents)
 INSERT INTO public.role_permissions (role_id, permission_id)
-SELECT 'role-03', p.id FROM public.permissions p WHERE p.id IN ('p57', 'p62')
+SELECT r.id, p.id
+FROM public.roles r
+CROSS JOIN public.permissions p
+WHERE r.code = 'viewer'
+  AND p.code IN ('verification.view', 'document.view')
 ON CONFLICT DO NOTHING;
