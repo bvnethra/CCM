@@ -747,7 +747,7 @@ labWorker.get('/lab/assignments/:requestId', requirePermission('lab.request.view
 // ============================================================================
 labWorker.post('/lab/requests/:requestId/receive', requirePermission('lab.receipt.confirm'), async (c) => {
   const user = c.get('user');
-  const requestId = c.req.param('requestId');
+  const requestId = c.req.param('requestId') || '';
   const body = await c.req.json().catch(() => ({}));
 
   const receivedQuantity = parseInt(body.received_quantity) || 1;
@@ -776,7 +776,7 @@ labWorker.post('/lab/requests/:requestId/receive', requirePermission('lab.receip
     .insert({
       tenant_id: user.tenantId,
       organization_id: user.organizationId,
-      sub_org_id: user.subOrgId,
+      sub_org_id: user.subOrgId || null,
       request_id: requestId,
       received_by: user.userId,
       received_at: timestamp,
@@ -832,7 +832,7 @@ labWorker.post('/lab/requests/:requestId/receive', requirePermission('lab.receip
 // ============================================================================
 labWorker.post('/lab/requests/:requestId/receipt-discrepancy', requirePermission('lab.receipt.discrepancy'), async (c) => {
   const user = c.get('user');
-  const requestId = c.req.param('requestId');
+  const requestId = c.req.param('requestId') || '';
   const body = await c.req.json().catch(() => ({}));
 
   const discrepancyRemarks = body.remarks || body.reason;
@@ -864,7 +864,7 @@ labWorker.post('/lab/requests/:requestId/receipt-discrepancy', requirePermission
     .insert({
       tenant_id: user.tenantId,
       organization_id: user.organizationId,
-      sub_org_id: user.subOrgId,
+      sub_org_id: user.subOrgId || null,
       request_id: requestId,
       received_by: user.userId,
       received_at: timestamp,

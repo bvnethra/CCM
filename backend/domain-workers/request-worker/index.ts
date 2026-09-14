@@ -683,7 +683,7 @@ requestWorker.get('/calibration-requests/:id/items', requirePermission('request.
 // ==========================================
 requestWorker.post('/calibration-requests/:id/hold', requirePermission('request.hold'), async (c) => {
   const user = c.get('user');
-  const id = c.req.param('id');
+  const id = c.req.param('id') || '';
   const body = await c.req.json().catch(() => ({}));
   const holdReason = body.hold_reason || body.reason;
 
@@ -755,7 +755,7 @@ requestWorker.post('/calibration-requests/:id/hold', requirePermission('request.
 // ==========================================
 requestWorker.post('/calibration-requests/:id/resume', requirePermission('request.resume'), async (c) => {
   const user = c.get('user');
-  const id = c.req.param('id');
+  const id = c.req.param('id') || '';
   const body = await c.req.json().catch(() => ({}));
   const resumeRemarks = body.remarks || 'Request resumed from hold state';
 
@@ -823,7 +823,7 @@ requestWorker.post('/calibration-requests/:id/resume', requirePermission('reques
 // ==========================================
 requestWorker.post('/calibration-requests/:id/cancel', requirePermission('request.cancel'), async (c) => {
   const user = c.get('user');
-  const id = c.req.param('id');
+  const id = c.req.param('id') || '';
   const body = await c.req.json().catch(() => ({}));
   const cancellationReason = body.cancellation_reason || body.reason;
 
@@ -952,7 +952,7 @@ requestWorker.post('/calibration-requests/sync-offline-drafts', requirePermissio
         .insert({
           tenant_id: user.tenantId,
           organization_id: user.organizationId,
-          sub_org_id: user.subOrgId,
+          sub_org_id: user.subOrgId || null,
           request_number: requestNumber,
           client_id: draft.client_id,
           collection_agent_id: user.userId,

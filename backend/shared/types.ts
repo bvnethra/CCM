@@ -336,8 +336,10 @@ export interface AuthenticatedUser {
   email: string;
   role: UserRole;
   tenantId: string;
+  tenant_id?: string;
   organizationId?: string | null;
   subOrganizationId?: string | null;
+  subOrgId?: string | null;
   permissions: string[];
 }
 

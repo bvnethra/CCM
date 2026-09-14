@@ -324,7 +324,7 @@ serviceWorker.get('/service-requests/:id', requirePermission('service.view'), as
 // 4. RECORD CLIENT APPROVAL (APPROVED OR REJECTED)
 // ============================================================================
 serviceWorker.post('/service-requests/:id/approval', requirePermission('service.approve'), async (c) => {
-  const id = c.req.param('id');
+  const id = c.req.param('id') || '';
   const user = c.get('user');
   const tenantId = user.tenantId;
   const supabase = getSupabase(c);
@@ -428,7 +428,7 @@ serviceWorker.post('/service-requests/:id/approval', requirePermission('service.
 // 5. START SERVICE OPERATION
 // ============================================================================
 serviceWorker.post('/service-requests/:id/start', requirePermission('service.start'), async (c) => {
-  const id = c.req.param('id');
+  const id = c.req.param('id') || '';
   const user = c.get('user');
   const tenantId = user.tenantId;
   const supabase = getSupabase(c);
@@ -492,7 +492,7 @@ serviceWorker.post('/service-requests/:id/start', requirePermission('service.sta
 // 6. COMPLETE SERVICE OPERATION
 // ============================================================================
 serviceWorker.post('/service-requests/:id/complete', requirePermission('service.complete'), async (c) => {
-  const id = c.req.param('id');
+  const id = c.req.param('id') || '';
   const user = c.get('user');
   const tenantId = user.tenantId;
   const supabase = getSupabase(c);
@@ -561,7 +561,7 @@ serviceWorker.post('/service-requests/:id/complete', requirePermission('service.
 // 7. RETURN ITEM TO CALIBRATION (ELIGIBLE FOR RE-CALIBRATION)
 // ============================================================================
 serviceWorker.post('/service-requests/:id/return-to-calibration', requirePermission('service.return_to_calibration'), async (c) => {
-  const id = c.req.param('id');
+  const id = c.req.param('id') || '';
   const user = c.get('user');
   const tenantId = user.tenantId;
   const supabase = getSupabase(c);
@@ -628,7 +628,7 @@ serviceWorker.post('/service-requests/:id/return-to-calibration', requirePermiss
 serviceWorker.post('/service-requests/:id/commercial-charge', requirePermission('service.charge.create'), async (c) => {
   const user = c.get('user');
   const tenantId = user.tenantId;
-  const id = c.req.param('id');
+  const id = c.req.param('id') || '';
   const body = await c.req.json();
 
   const unitCost = parseFloat(body.service_unit_cost) || 0;

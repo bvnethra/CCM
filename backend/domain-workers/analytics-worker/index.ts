@@ -343,7 +343,7 @@ analyticsWorker.get('/calibration/due-list', requirePermission('calibration.due_
 // ==========================================
 analyticsWorker.post('/calibration-requests/:id/evaluate-completion', requirePermission('request.edit'), async (c) => {
   const user = c.get('user');
-  const requestId = c.req.param('id');
+  const requestId = c.req.param('id') || '';
   const tenantId = user.tenantId;
   const supabase = getSupabase(c);
 

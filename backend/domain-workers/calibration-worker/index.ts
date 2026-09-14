@@ -564,7 +564,7 @@ calibrationWorker.delete('/calibrations/:id/measurements/:measurementId', requir
 // 5. COMPLETE CALIBRATION
 // ============================================================================
 calibrationWorker.post('/calibrations/:id/complete', requirePermission('calibration.complete'), async (c) => {
-  const calibrationId = c.req.param('id');
+  const calibrationId = c.req.param('id') || '';
   const user = c.get('user');
   const tenantId = user.tenantId;
   const supabase = getSupabase(c);
@@ -998,7 +998,7 @@ calibrationWorker.post('/calibrations/due-list/:itemId/create-request', requireP
     item_available: 'YES',
   });
 
-  await logAuditEvent(c, {
+  await logAuditEvent(supabase, {
     action: 'DUE_LIST_REQUEST_CREATED',
     resourceType: 'calibration_requests',
     resourceId: newReq.id,
@@ -1085,7 +1085,7 @@ calibrationWorker.post('/calibrations/due-list/:itemId/create-quotation', requir
     line_total: totalAmount,
   });
 
-  await logAuditEvent(c, {
+  await logAuditEvent(supabase, {
     action: 'DUE_LIST_QUOTATION_CREATED',
     resourceType: 'quotations',
     resourceId: newQtn.id,

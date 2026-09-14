@@ -325,7 +325,7 @@ quotationWorker.post('/quotations/:id/submit', async (c) => {
     requested_at: new Date().toISOString(),
   });
 
-  await logAuditEvent(c, {
+  await logAuditEvent(supabase, {
     action: 'QUOTATION_SUBMITTED',
     resourceType: 'quotations',
     resourceId: id,
@@ -442,7 +442,7 @@ quotationWorker.post('/quotations/:id/send', async (c) => {
     return c.json({ success: false, error: updateErr.message }, 500);
   }
 
-  await logAuditEvent(c, {
+  await logAuditEvent(supabase, {
     action: 'QUOTATION_SENT',
     resourceType: 'quotations',
     resourceId: id,
@@ -526,7 +526,7 @@ quotationWorker.post('/quotations/:id/revise', async (c) => {
     await supabase.from('quotation_items').insert(copiedItems);
   }
 
-  await logAuditEvent(c, {
+  await logAuditEvent(supabase, {
     action: 'QUOTATION_REVISED',
     resourceType: 'quotations',
     resourceId: revQtn.id,
@@ -573,7 +573,7 @@ quotationWorker.post('/quotations/:id/client-response', async (c) => {
     return c.json({ success: false, error: updateErr.message }, 500);
   }
 
-  await logAuditEvent(c, {
+  await logAuditEvent(supabase, {
     action: 'CLIENT_QUOTATION_RESPONSE',
     resourceType: 'quotations',
     resourceId: id,
@@ -670,7 +670,7 @@ quotationWorker.post('/quotations/:id/create-request', async (c) => {
       .eq('id', qi.id);
   }
 
-  await logAuditEvent(c, {
+  await logAuditEvent(supabase, {
     action: 'QUOTATION_REQUEST_CREATED',
     resourceType: 'calibration_requests',
     resourceId: newReq.id,
