@@ -254,7 +254,7 @@ export const ItemManagementPage: React.FC = () => {
       header: 'Standard Cost',
       render: (row) => (
         <span className="text-xs font-semibold text-emerald-700">
-          ${Number(row.standard_cost || 0).toFixed(2)}
+          ₹{Number(row.standard_cost || 0).toFixed(2)}
         </span>
       ),
     },

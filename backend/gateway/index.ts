@@ -11,6 +11,13 @@ import { itemWorker } from '../domain-workers/item-worker';
 import { requestWorker } from '../domain-workers/request-worker';
 import { labWorker } from '../domain-workers/lab-worker';
 import { verificationWorker } from '../domain-workers/verification-worker';
+import { calibrationWorker } from '../domain-workers/calibration-worker';
+import { serviceWorker } from '../domain-workers/service-worker';
+import outsourceWorker from '../domain-workers/outsource-worker';
+import quotationWorker from '../domain-workers/quotation-worker';
+import invoiceWorker from '../domain-workers/invoice-worker';
+import { signatureWorker } from '../domain-workers/signature-worker';
+import { dispatchWorker } from '../domain-workers/dispatch-worker';
 import { StorageService } from '../shared/storage';
 
 const app = new Hono<{ Bindings: WorkerEnv; Variables: { user: AuthenticatedUser } }>();
@@ -146,6 +153,9 @@ function getDefaultPermissions(role: UserRole): string[] {
       'lab.queue.view', 'lab.queue.accept', 'lab.queue.assign', 'lab.queue.reassign', 'lab.queue.hold',
       'lab.request.view', 'lab.request.start_verification', 'lab.request.override_assignment',
       'verification.view', 'verification.create', 'verification.edit', 'verification.complete', 'verification.override',
+      'calibration.view', 'calibration.create', 'calibration.edit', 'calibration.complete', 'calibration.override', 'calibration.due_list.view',
+      'certificate.view', 'certificate.generate', 'certificate.regenerate',
+      'service.view', 'service.create', 'service.edit', 'service.request_approval', 'service.approve', 'service.start', 'service.complete', 'service.return_to_calibration', 'service.cancel',
       'document.view', 'document.upload', 'document.delete', 'document.version',
       'audit.view',
     ];
@@ -170,6 +180,9 @@ function getDefaultPermissions(role: UserRole): string[] {
       'lab.queue.view', 'lab.queue.accept', 'lab.queue.hold',
       'lab.request.view', 'lab.request.start_verification',
       'verification.view', 'verification.create', 'verification.edit', 'verification.complete',
+      'calibration.view', 'calibration.create', 'calibration.edit', 'calibration.complete', 'calibration.due_list.view',
+      'certificate.view', 'certificate.generate',
+      'service.view', 'service.create', 'service.edit', 'service.approve', 'service.start', 'service.complete', 'service.return_to_calibration',
       'document.view', 'document.upload', 'document.version',
     ];
   }
@@ -294,6 +307,22 @@ app.route('/api/v1', labWorker);
 app.route('/api', labWorker);
 app.route('/api/v1', verificationWorker);
 app.route('/api', verificationWorker);
+app.route('/api/v1', calibrationWorker);
+app.route('/api', calibrationWorker);
+app.route('/api/v1', serviceWorker);
+app.route('/api', serviceWorker);
+app.route('/api/v1', outsourceWorker);
+app.route('/api', outsourceWorker);
+app.route('/api/v1', quotationWorker);
+app.route('/api', quotationWorker);
+app.route('/api/v1', invoiceWorker);
+app.route('/api', invoiceWorker);
+app.route('/api/v1/invoice-signatures', signatureWorker);
+app.route('/api/v1', signatureWorker);
+app.route('/api', signatureWorker);
+app.route('/api/v1/dispatches', dispatchWorker);
+app.route('/api/v1', dispatchWorker);
+app.route('/api', dispatchWorker);
 
 // 5. Cloudflare R2 Private / Signed URL API
 app.post('/api/v1/storage/signed-url', async (c) => {

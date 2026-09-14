@@ -126,7 +126,7 @@ export const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-500">Standard Service Cost</span>
                 <span className="font-semibold text-emerald-700 text-sm">
-                  ${Number(item.standard_cost || 0).toFixed(2)}
+                  ₹{Number(item.standard_cost || 0).toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-100">

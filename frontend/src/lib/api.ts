@@ -27,6 +27,35 @@ import {
   ConditionStatus,
   DocumentType,
   VerificationQueueItem,
+  Calibration,
+  CalibrationMeasurement,
+  Certificate,
+  CalibrationQueueItem,
+  DueListItem,
+  CalibrationResult,
+  CalibrationStatus,
+  MeasurementResult,
+  DueStatus,
+  ServiceRequest,
+  ServiceApproval,
+  ServiceStatus,
+  VendorOutsourceRequest,
+  PurchaseOrder,
+  POItem,
+  VendorOutsourceMovement,
+  VendorCalibrationRecord,
+  VendorCalibrationResult,
+  Quotation,
+  QuotationItem,
+  QuotationApproval,
+  Invoice,
+  InvoiceItem,
+  InvoiceType,
+  Signature,
+  InvoiceSignatureRequest,
+  Dispatch,
+  DispatchItem,
+  Delivery,
 } from '../types';
 import {
   initialTenants,
@@ -46,6 +75,26 @@ import {
   initialStatusHistory,
   initialVerifications,
   initialDocuments,
+  initialCalibrations,
+  initialCalibrationMeasurements,
+  initialCertificates,
+  initialServiceRequests,
+  initialServiceApprovals,
+  initialVendorOutsourceRequests,
+  initialPurchaseOrders,
+  initialPOItems,
+  initialVendorOutsourceMovements,
+  initialVendorCalibrationRecords,
+  initialQuotations,
+  initialQuotationItems,
+  initialQuotationApprovals,
+  initialInvoices,
+  initialInvoiceItems,
+  initialInvoiceSignatureRequests,
+  initialSignatures,
+  initialDispatches,
+  initialDispatchItems,
+  initialDeliveries,
 } from './mockData';
 import { supabase, isSupabaseConfigured } from './supabase';
 
@@ -65,6 +114,26 @@ class MemoryStore {
   statusHistory: RequestStatusHistory[] = [...initialStatusHistory];
   verifications: Verification[] = [...initialVerifications];
   documents: DocumentItem[] = [...initialDocuments];
+  calibrations: Calibration[] = [...initialCalibrations];
+  calibrationMeasurements: CalibrationMeasurement[] = [...initialCalibrationMeasurements];
+  certificates: Certificate[] = [...initialCertificates];
+  serviceRequests: ServiceRequest[] = [...initialServiceRequests];
+  serviceApprovals: ServiceApproval[] = [...initialServiceApprovals];
+  vendorOutsourceRequests: VendorOutsourceRequest[] = [...initialVendorOutsourceRequests];
+  purchaseOrders: PurchaseOrder[] = [...initialPurchaseOrders];
+  poItems: POItem[] = [...initialPOItems];
+  vendorOutsourceMovements: VendorOutsourceMovement[] = [...initialVendorOutsourceMovements];
+  vendorCalibrationRecords: VendorCalibrationRecord[] = [...initialVendorCalibrationRecords];
+  quotations: Quotation[] = [...initialQuotations];
+  quotationItems: QuotationItem[] = [...initialQuotationItems];
+  quotationApprovals: QuotationApproval[] = [...initialQuotationApprovals];
+  invoices: Invoice[] = [...initialInvoices];
+  invoiceItems: InvoiceItem[] = [...initialInvoiceItems];
+  signatureRequests: InvoiceSignatureRequest[] = [...initialInvoiceSignatureRequests];
+  signatures: Signature[] = [...initialSignatures];
+  dispatches: Dispatch[] = [...initialDispatches];
+  dispatchItems: DispatchItem[] = [...initialDispatchItems];
+  deliveries: Delivery[] = [...initialDeliveries];
   auditLogs: AuditLog[] = [...initialAuditLogs];
   profiles: UserProfile[] = [...demoProfiles];
   roles: Role[] = [...initialRoles];
@@ -155,7 +224,7 @@ export const apiClient = {
       name: data.name,
       code: data.code.toUpperCase(),
       status: data.status,
-      settings: data.settings || { timezone: 'UTC', currency: 'USD' },
+      settings: data.settings || { timezone: 'Asia/Kolkata', currency: 'INR' },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       organizations_count: 0,
@@ -2788,4 +2857,3084 @@ export const apiClient = {
     }
     throw new Error('Document not found');
   },
+
+  // ============================================================================
+  // STEP 9: CALIBRATION API METHODS
+  // ============================================================================
+  async getCalibrationQueue(
+    tenantId: string,
+    params: { status?: string; priority?: string; search?: string; page?: number; pageSize?: number } = {}
+  ) {
+    if (isSupabaseConfigured) {
+      try {
+        const queryParams = new URLSearchParams();
+        if (params.status) queryParams.set('status', params.status);
+        if (params.priority) queryParams.set('priority', params.priority);
+        if (params.search) queryParams.set('search', params.search);
+        if (params.page) queryParams.set('page', String(params.page));
+        if (params.pageSize) queryParams.set('pageSize', String(params.pageSize));
+
+        const res = await fetch(`${API_BASE}/calibrations?${queryParams.toString()}`, {
+          headers: { 'x-tenant-id': tenantId },
+        });
+        const json = await res.json();
+        if (json.success) return json.data;
+      } catch (err) {
+        console.warn('API Gateway failed, using fallback store:', err);
+      }
+    }
+
+    // In-memory fallback
+    const verified = memoryDb.verifications.filter(
+      (v) => (tenantId === 'all' || v.tenant_id === tenantId) && v.verification_result === 'VERIFIED'
+    );
+
+    let items: CalibrationQueueItem[] = verified.map((v) => {
+      const req = memoryDb.calibrationRequests.find((r) => r.id === v.request_id);
+      const client = req ? memoryDb.clients.find((c) => c.id === req.client_id) || null : null;
+      const reqItem = memoryDb.requestItems.find((ri) => ri.id === v.request_item_id);
+      const itemMaster = reqItem ? memoryDb.items.find((i) => i.id === reqItem.item_id) || null : null;
+      const cal = memoryDb.calibrations.find((c) => c.request_item_id === v.request_item_id && (tenantId === 'all' || c.tenant_id === tenantId)) || null;
+
+      const verifier = memoryDb.profiles.find((p) => p.id === v.verified_by);
+
+      return {
+        request_id: v.request_id,
+        request_number: req?.request_number || 'N/A',
+        priority: req?.priority || 'NORMAL',
+        client,
+        request_item_id: v.request_item_id,
+        item_id: reqItem?.item_id || '',
+        item_code: itemMaster?.item_code || 'N/A',
+        item_name: itemMaster?.item_name || 'N/A',
+        serial_number: itemMaster?.serial_number || 'N/A',
+        verification_result: v.verification_result,
+        verified_by: verifier?.full_name || 'System',
+        calibration: cal,
+        calibration_status: cal ? cal.status : 'PENDING',
+        calibration_result: cal ? cal.result : null,
+        created_at: v.verified_at,
+      };
+    });
+
+    if (params.status && params.status !== 'ALL') {
+      items = items.filter((i) => i.calibration_status === params.status);
+    }
+    if (params.priority && params.priority !== 'ALL') {
+      items = items.filter((i) => i.priority === params.priority);
+    }
+    if (params.search) {
+      const q = params.search.toLowerCase();
+      items = items.filter(
+        (i) =>
+          i.request_number.toLowerCase().includes(q) ||
+          i.item_code.toLowerCase().includes(q) ||
+          i.item_name.toLowerCase().includes(q) ||
+          i.serial_number.toLowerCase().includes(q) ||
+          (i.client?.client_name || '').toLowerCase().includes(q)
+      );
+    }
+
+    const total = items.length;
+    const page = params.page || 1;
+    const pageSize = params.pageSize || 20;
+
+    return {
+      items: items.slice((page - 1) * pageSize, page * pageSize),
+      metrics: {
+        total_eligible: verified.length,
+        pending: items.filter((i) => i.calibration_status === 'PENDING').length,
+        in_progress: items.filter((i) => i.calibration_status === 'IN_PROGRESS').length,
+        completed: items.filter((i) => i.calibration_status === 'COMPLETED').length,
+        failed: items.filter((i) => i.calibration_status === 'FAILED').length,
+        not_calibratable: items.filter((i) => i.calibration_status === 'NOT_CALIBRATABLE').length,
+      },
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize) || 1,
+      },
+    };
+  },
+
+  async getCalibrationWorkspace(requestItemId: string, tenantId: string) {
+    if (isSupabaseConfigured) {
+      try {
+        const res = await fetch(`${API_BASE}/calibrations/${requestItemId}`, {
+          headers: { 'x-tenant-id': tenantId },
+        });
+        const json = await res.json();
+        if (json.success) return json.data;
+      } catch (err) {
+        console.warn('API Gateway failed, using fallback store:', err);
+      }
+    }
+
+    const reqItem = memoryDb.requestItems.find((ri) => ri.id === requestItemId);
+    if (!reqItem) throw new Error('Request item not found');
+
+    const item = memoryDb.items.find((i) => i.id === reqItem.item_id) || null;
+    const req = memoryDb.calibrationRequests.find((r) => r.id === reqItem.request_id);
+    const client = req ? memoryDb.clients.find((c) => c.id === req.client_id) || null : null;
+    const verif = memoryDb.verifications.find((v) => v.request_item_id === requestItemId) || null;
+    const docs = memoryDb.documents.filter((d) => d.request_id === reqItem.request_id);
+
+    const calibration = memoryDb.calibrations.find((c) => c.request_item_id === requestItemId) || null;
+    let measurements: CalibrationMeasurement[] = [];
+    let certificates: Certificate[] = [];
+
+    if (calibration) {
+      measurements = memoryDb.calibrationMeasurements.filter((m) => m.calibration_id === calibration.id);
+      certificates = memoryDb.certificates.filter((c) => c.calibration_id === calibration.id);
+    }
+
+    return {
+      request_item: {
+        ...reqItem,
+        item,
+        request: req ? { ...req, client } : null,
+      },
+      verification: verif,
+      documents: docs,
+      calibration,
+      measurements,
+      certificates,
+    };
+  },
+
+  async startCalibration(
+    tenantId: string,
+    data: { request_id: string; request_item_id: string; item_id: string; calibration_method?: string; environmental_conditions?: string },
+    user = 'usr-current'
+  ) {
+    if (isSupabaseConfigured) {
+      try {
+        const res = await fetch(`${API_BASE}/calibrations/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+          body: JSON.stringify(data),
+        });
+        const json = await res.json();
+        if (json.success) return json.data;
+        throw new Error(json.error || 'Failed to start calibration');
+      } catch (err: any) {
+        if (!err.message?.includes('fetch')) throw err;
+      }
+    }
+
+    // Fallback store logic
+    const verif = memoryDb.verifications.find((v) => v.request_item_id === data.request_item_id);
+    if (!verif || verif.verification_result !== 'VERIFIED') {
+      throw new Error(`Item is not verified (${verif?.verification_result || 'UNVERIFIED'}). Only VERIFIED items can start calibration.`);
+    }
+
+    const existing = memoryDb.calibrations.find((c) => c.request_item_id === data.request_item_id);
+    if (existing) {
+      throw new Error(`Calibration already exists for this item (Status: ${existing.status}).`);
+    }
+
+    const now = new Date().toISOString();
+    const newCal: Calibration = {
+      id: `cal-${Date.now()}`,
+      tenant_id: tenantId,
+      request_id: data.request_id,
+      request_item_id: data.request_item_id,
+      item_id: data.item_id,
+      calibrated_by: user,
+      calibration_started_at: now,
+      calibration_method: data.calibration_method || 'Standard Direct Comparison Metrology',
+      environmental_conditions: data.environmental_conditions || 'Temperature: 23°C ± 2°C, Humidity: 50% ± 10% RH',
+      result: 'PASS',
+      status: 'IN_PROGRESS',
+      created_at: now,
+      updated_at: now,
+    };
+
+    memoryDb.calibrations.unshift(newCal);
+    memoryDb.addAudit(tenantId, 'START_CALIBRATION', 'calibrations', newCal.id, newCal);
+    memoryDb.notify();
+    return newCal;
+  },
+
+  async addMeasurementPoint(
+    tenantId: string,
+    calibrationId: string,
+    data: { measurement_point: string; nominal_value?: number | null; observed_value?: number | null; unit?: string | null; tolerance_min?: number | null; tolerance_max?: number | null; remarks?: string | null }
+  ) {
+    let error_value: number | null = null;
+    let measurement_result: MeasurementResult = 'NOT_TESTED';
+
+    if (typeof data.nominal_value === 'number' && typeof data.observed_value === 'number') {
+      error_value = Number((data.observed_value - data.nominal_value).toFixed(4));
+      if (typeof data.tolerance_min === 'number' && typeof data.tolerance_max === 'number') {
+        measurement_result = (data.observed_value >= data.tolerance_min && data.observed_value <= data.tolerance_max) ? 'PASS' : 'FAIL';
+      } else {
+        measurement_result = 'PASS';
+      }
+    }
+
+    const now = new Date().toISOString();
+    const meas: CalibrationMeasurement = {
+      id: `meas-${Date.now()}`,
+      tenant_id: tenantId,
+      calibration_id: calibrationId,
+      measurement_point: data.measurement_point,
+      nominal_value: data.nominal_value ?? null,
+      observed_value: data.observed_value ?? null,
+      unit: data.unit || 'bar',
+      tolerance_min: data.tolerance_min ?? null,
+      tolerance_max: data.tolerance_max ?? null,
+      error_value,
+      measurement_result,
+      remarks: data.remarks || null,
+      created_at: now,
+      updated_at: now,
+    };
+
+    memoryDb.calibrationMeasurements.push(meas);
+    memoryDb.notify();
+    return meas;
+  },
+
+  async updateMeasurementPoint(
+    tenantId: string,
+    calibrationId: string,
+    measurementId: string,
+    updates: Partial<CalibrationMeasurement>
+  ) {
+    const idx = memoryDb.calibrationMeasurements.findIndex((m) => m.id === measurementId && m.calibration_id === calibrationId && (tenantId === 'all' || m.tenant_id === tenantId));
+    if (idx < 0) throw new Error('Measurement point not found');
+
+    const merged = { ...memoryDb.calibrationMeasurements[idx], ...updates };
+    let error_value: number | null = null;
+    let measurement_result: MeasurementResult = 'NOT_TESTED';
+
+    if (typeof merged.nominal_value === 'number' && typeof merged.observed_value === 'number') {
+      error_value = Number((merged.observed_value - merged.nominal_value).toFixed(4));
+      if (typeof merged.tolerance_min === 'number' && typeof merged.tolerance_max === 'number') {
+        measurement_result = (merged.observed_value >= merged.tolerance_min && merged.observed_value <= merged.tolerance_max) ? 'PASS' : 'FAIL';
+      } else {
+        measurement_result = 'PASS';
+      }
+    }
+
+    const updated = {
+      ...merged,
+      error_value,
+      measurement_result,
+      updated_at: new Date().toISOString(),
+    };
+
+    memoryDb.calibrationMeasurements[idx] = updated;
+    memoryDb.notify();
+    return updated;
+  },
+
+  async deleteMeasurementPoint(tenantId: string, calibrationId: string, measurementId: string) {
+    const idx = memoryDb.calibrationMeasurements.findIndex((m) => m.id === measurementId && m.calibration_id === calibrationId && (tenantId === 'all' || m.tenant_id === tenantId));
+    if (idx >= 0) {
+      memoryDb.calibrationMeasurements.splice(idx, 1);
+      memoryDb.notify();
+      return { success: true };
+    }
+    throw new Error('Measurement point not found');
+  },
+
+  async completeCalibration(
+    tenantId: string,
+    calibrationId: string,
+    data: { result: CalibrationResult; calibration_method: string; environmental_conditions?: string | null; remarks?: string | null; calibration_frequency_override?: number | null; calibration_frequency_unit_override?: string | null; override_reason?: string | null },
+    userId = 'usr-current'
+  ) {
+    const idx = memoryDb.calibrations.findIndex((c) => c.id === calibrationId);
+    if (idx < 0) throw new Error('Calibration record not found');
+
+    const cal = memoryDb.calibrations[idx];
+    const itemMaster = memoryDb.items.find((i) => i.id === cal.item_id);
+
+    let freq = itemMaster?.calibration_frequency || 12;
+    let freqUnit = itemMaster?.calibration_frequency_unit || 'MONTHS';
+    let isOverride = false;
+
+    if (data.calibration_frequency_override) {
+      freq = data.calibration_frequency_override;
+      freqUnit = data.calibration_frequency_unit_override || freqUnit;
+      isOverride = true;
+    }
+
+    const now = new Date();
+    const completionDateStr = now.toISOString().split('T')[0];
+
+    const nextDate = new Date(now);
+    if (freqUnit === 'YEARS') {
+      nextDate.setFullYear(nextDate.getFullYear() + freq);
+    } else if (freqUnit === 'DAYS') {
+      nextDate.setDate(nextDate.getDate() + freq);
+    } else {
+      nextDate.setMonth(nextDate.getMonth() + freq);
+    }
+    const nextDueDateStr = nextDate.toISOString().split('T')[0];
+
+    const finalStatus: CalibrationStatus = (data.result === 'PASS' || data.result === 'ADJUSTED')
+      ? 'COMPLETED'
+      : (data.result === 'FAIL' ? 'FAILED' : 'NOT_CALIBRATABLE');
+
+    const updated: Calibration = {
+      ...cal,
+      status: finalStatus,
+      result: data.result,
+      calibration_completed_at: now.toISOString(),
+      calibration_method: data.calibration_method,
+      environmental_conditions: data.environmental_conditions || cal.environmental_conditions,
+      remarks: data.remarks || null,
+      calibration_date: completionDateStr,
+      next_due_date: nextDueDateStr,
+      calibration_frequency: freq,
+      calibration_frequency_unit: freqUnit,
+      frequency_override: isOverride,
+      frequency_override_reason: isOverride ? data.override_reason : null,
+      frequency_overridden_by: isOverride ? userId : null,
+      frequency_overridden_at: isOverride ? now.toISOString() : null,
+      updated_at: now.toISOString(),
+    };
+
+    memoryDb.calibrations[idx] = updated;
+    memoryDb.addAudit(tenantId, 'COMPLETE_CALIBRATION', 'calibrations', calibrationId, updated);
+    memoryDb.notify();
+    return updated;
+  },
+
+  async getCalibrationDueList(
+    tenantId: string,
+    params: { status?: string; clientId?: string; search?: string; dueSoonDays?: number } = {}
+  ) {
+    const dueSoonDays = params.dueSoonDays || 30;
+    const now = new Date();
+
+    const completedCals = memoryDb.calibrations.filter((c) => (tenantId === 'all' || c.tenant_id === tenantId) && c.status === 'COMPLETED');
+
+    let list: DueListItem[] = [];
+    let overdueCount = 0;
+    let dueSoonCount = 0;
+    let upcomingCount = 0;
+
+    for (const c of completedCals) {
+      if (!c.next_due_date) continue;
+      const itemMaster = memoryDb.items.find((i) => i.id === c.item_id);
+      const req = memoryDb.calibrationRequests.find((r) => r.id === c.request_id);
+      const client = req ? memoryDb.clients.find((cl) => cl.id === req.client_id) || null : null;
+
+      const dueDate = new Date(c.next_due_date);
+      const daysRemaining = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+      let dueCategory: DueStatus = 'UPCOMING';
+      if (daysRemaining < 0) {
+        dueCategory = 'OVERDUE';
+        overdueCount++;
+      } else if (daysRemaining <= dueSoonDays) {
+        dueCategory = 'DUE_SOON';
+        dueSoonCount++;
+      } else {
+        dueCategory = 'UPCOMING';
+        upcomingCount++;
+      }
+
+      list.push({
+        id: c.id,
+        request_id: c.request_id,
+        request_number: req?.request_number || 'N/A',
+        item_id: c.item_id,
+        item_code: itemMaster?.item_code || 'N/A',
+        item_name: itemMaster?.item_name || 'N/A',
+        serial_number: itemMaster?.serial_number || 'N/A',
+        client,
+        last_calibration_date: c.calibration_date || '',
+        calibration_frequency: c.calibration_frequency || 12,
+        calibration_frequency_unit: c.calibration_frequency_unit || 'MONTHS',
+        next_due_date: c.next_due_date,
+        days_remaining: daysRemaining,
+        due_status: dueCategory,
+        result: c.result,
+      });
+    }
+
+    if (params.status && params.status !== 'ALL') {
+      list = list.filter((i) => i.due_status === params.status);
+    }
+    if (params.clientId && params.clientId !== 'ALL') {
+      list = list.filter((i) => i.client?.id === params.clientId);
+    }
+    if (params.search) {
+      const q = params.search.toLowerCase();
+      list = list.filter(
+        (i) =>
+          i.item_code.toLowerCase().includes(q) ||
+          i.item_name.toLowerCase().includes(q) ||
+          i.serial_number.toLowerCase().includes(q) ||
+          (i.client?.client_name || '').toLowerCase().includes(q)
+      );
+    }
+
+    return {
+      items: list,
+      metrics: {
+        total: completedCals.length,
+        overdue: overdueCount,
+        due_soon: dueSoonCount,
+        upcoming: upcomingCount,
+      },
+    };
+  },
+
+  async generateCertificate(
+    tenantId: string,
+    calibrationId: string,
+    userId = 'usr-current'
+  ) {
+    const cal = memoryDb.calibrations.find((c) => c.id === calibrationId);
+    if (!cal) throw new Error('Calibration record not found');
+
+    const existing = memoryDb.certificates.filter((c) => c.calibration_id === calibrationId);
+    const nextVersion = existing.length > 0 ? existing.length + 1 : 1;
+    const certNum = existing.length > 0 ? existing[0].certificate_number : `CERT-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    const fileName = `Certificate_${certNum}_v${nextVersion}.pdf`;
+    const storageRef = `tenants/${tenantId}/certificates/${fileName}`;
+    const now = new Date().toISOString();
+
+    const cert: Certificate = {
+      id: `cert-${Date.now()}`,
+      tenant_id: tenantId,
+      request_id: cal.request_id,
+      request_item_id: cal.request_item_id,
+      calibration_id: calibrationId,
+      certificate_number: certNum,
+      document_type: 'CALIBRATION_CERTIFICATE',
+      file_name: fileName,
+      storage_reference: storageRef,
+      version: nextVersion,
+      generated_by: userId,
+      generated_at: now,
+      created_at: now,
+      updated_at: now,
+    };
+
+    memoryDb.certificates.unshift(cert);
+    memoryDb.addAudit(tenantId, nextVersion > 1 ? 'REGENERATE_CERTIFICATE' : 'GENERATE_CERTIFICATE', 'certificates', cert.id, cert);
+    memoryDb.notify();
+
+    return {
+      certificate: cert,
+      signedDownloadUrl: `https://storage.ccm.internal/download/${encodeURIComponent(storageRef)}?sig=mock-presigned-token`,
+    };
+  },
+
+  async getCertificateDownloadUrl(certificateId: string, tenantId: string) {
+    const cert = memoryDb.certificates.find((c) => c.id === certificateId && (tenantId === 'all' || c.tenant_id === tenantId));
+    if (!cert) throw new Error('Certificate not found');
+
+    return {
+      certificateId: cert.id,
+      certificateNumber: cert.certificate_number,
+      version: cert.version,
+      fileName: cert.file_name,
+      downloadUrl: `https://storage.ccm.internal/download/${encodeURIComponent(cert.storage_reference)}?sig=mock-presigned-token`,
+    };
+  },
+
+  // ----------------------------------------------------
+  // STEP 10: FAULTY ITEM, SERVICE REQUIRED & CLIENT APPROVAL
+  // ----------------------------------------------------
+  async getServiceRequests(
+    tenantId: string,
+    params: { status?: string; search?: string; clientId?: string } = {}
+  ) {
+    let requests = memoryDb.serviceRequests.filter(
+      (sr) => tenantId === 'all' || sr.tenant_id === tenantId
+    );
+
+    if (params.status && params.status !== 'ALL') {
+      requests = requests.filter((sr) => sr.service_status === params.status);
+    }
+    if (params.clientId && params.clientId !== 'ALL') {
+      requests = requests.filter((sr) => sr.client_id === params.clientId);
+    }
+
+    const enriched = requests.map((sr) => {
+      const client = memoryDb.clients.find((c) => c.id === sr.client_id) || sr.client || null;
+      const calibration = memoryDb.calibrations.find((c) => c.id === sr.calibration_id) || sr.calibration || null;
+      const req = memoryDb.calibrationRequests.find((r) => r.id === sr.request_id) || sr.request || null;
+      const request_item = memoryDb.requestItems.find((ri) => ri.id === sr.request_item_id) || sr.request_item || null;
+      const itemMaster = request_item?.item_id ? memoryDb.items.find((i) => i.id === request_item.item_id) : null;
+      const approvals = memoryDb.serviceApprovals.filter((a) => a.service_request_id === sr.id);
+
+      return {
+        ...sr,
+        client,
+        calibration,
+        request: req,
+        request_item: request_item ? { ...request_item, item: itemMaster || request_item.item } : null,
+        approvals,
+      };
+    });
+
+    if (params.search && params.search.trim()) {
+      const q = params.search.toLowerCase();
+      return enriched.filter(
+        (sr) =>
+          sr.fault_description.toLowerCase().includes(q) ||
+          (sr.client?.client_name || '').toLowerCase().includes(q) ||
+          (sr.request?.request_number || '').toLowerCase().includes(q) ||
+          (sr.request_item?.item?.item_code || '').toLowerCase().includes(q) ||
+          (sr.request_item?.item?.item_name || '').toLowerCase().includes(q) ||
+          (sr.request_item?.item?.serial_number || '').toLowerCase().includes(q)
+      );
+    }
+
+    return enriched;
+  },
+
+  async getServiceRequestDetails(id: string, tenantId: string): Promise<ServiceRequest> {
+    const sr = memoryDb.serviceRequests.find((s) => s.id === id && (tenantId === 'all' || s.tenant_id === tenantId));
+    if (!sr) throw new Error('Service request record not found');
+
+    const client = memoryDb.clients.find((c) => c.id === sr.client_id) || sr.client || null;
+    const calibration = memoryDb.calibrations.find((c) => c.id === sr.calibration_id) || sr.calibration || null;
+    const req = memoryDb.calibrationRequests.find((r) => r.id === sr.request_id) || sr.request || null;
+    const request_item = memoryDb.requestItems.find((ri) => ri.id === sr.request_item_id) || sr.request_item || null;
+    const itemMaster = request_item?.item_id ? memoryDb.items.find((i) => i.id === request_item.item_id) : null;
+    const createdByUser = memoryDb.profiles.find((p) => p.id === sr.created_by) || sr.created_by_user || null;
+    const startedByUser = sr.started_by ? memoryDb.profiles.find((p) => p.id === sr.started_by) : null;
+    const completedByUser = sr.completed_by ? memoryDb.profiles.find((p) => p.id === sr.completed_by) : null;
+
+    const approvals = memoryDb.serviceApprovals.filter((a) => a.service_request_id === sr.id);
+
+    return {
+      ...sr,
+      client,
+      calibration,
+      request: req,
+      request_item: request_item ? { ...request_item, item: itemMaster || request_item.item } : null,
+      created_by_user: createdByUser,
+      started_by_user: startedByUser,
+      completed_by_user: completedByUser,
+      approvals,
+    };
+  },
+
+  async createServiceRequest(
+    tenantId: string,
+    data: {
+      request_id: string;
+      request_item_id: string;
+      calibration_id: string;
+      client_id: string;
+      fault_description: string;
+      estimated_service_cost?: number | null;
+      service_remarks?: string | null;
+    },
+    userId = 'usr-acme-lab-tech'
+  ): Promise<ServiceRequest> {
+    const cal = memoryDb.calibrations.find((c) => c.id === data.calibration_id);
+    if (!cal) throw new Error('Associated calibration record not found');
+    if (cal.result !== 'FAIL' && cal.result !== 'NOT_CALIBRATABLE') {
+      throw new Error('Service request can only be created for items with calibration result FAIL or NOT_CALIBRATABLE');
+    }
+
+    const now = new Date().toISOString();
+    const serviceReqId = `sr-${Date.now()}`;
+
+    const newSr: ServiceRequest = {
+      id: serviceReqId,
+      tenant_id: tenantId,
+      request_id: data.request_id,
+      request_item_id: data.request_item_id,
+      calibration_id: data.calibration_id,
+      client_id: data.client_id,
+      service_status: 'AWAITING_CLIENT_APPROVAL',
+      fault_description: data.fault_description,
+      service_required: true,
+      estimated_service_cost: data.estimated_service_cost ?? null,
+      service_remarks: data.service_remarks || null,
+      created_by: userId,
+      created_at: now,
+      updated_at: now,
+    };
+
+    const initialApproval: ServiceApproval = {
+      id: `sa-${Date.now()}`,
+      tenant_id: tenantId,
+      service_request_id: serviceReqId,
+      approval_status: 'PENDING',
+      created_at: now,
+      updated_at: now,
+    };
+
+    memoryDb.serviceRequests.unshift(newSr);
+    memoryDb.serviceApprovals.unshift(initialApproval);
+
+    memoryDb.addAudit(tenantId, 'CREATE_SERVICE_REQUEST', 'service_requests', newSr.id, newSr);
+    memoryDb.notify();
+
+    return this.getServiceRequestDetails(newSr.id, tenantId);
+  },
+
+  async recordClientApproval(
+    tenantId: string,
+    serviceRequestId: string,
+    data: {
+      approval_status: 'APPROVED' | 'REJECTED';
+      approved_by_client_name?: string;
+      approved_by_client_role?: string;
+      approval_remarks?: string;
+      approval_reference?: string;
+    }
+  ): Promise<ServiceRequest> {
+    const idx = memoryDb.serviceRequests.findIndex((s) => s.id === serviceRequestId && (tenantId === 'all' || s.tenant_id === tenantId));
+    if (idx < 0) throw new Error('Service request record not found');
+
+    const sr = memoryDb.serviceRequests[idx];
+    if (data.approval_status === 'REJECTED' && (!data.approval_remarks || !data.approval_remarks.trim())) {
+      throw new Error('Mandatory rejection remarks are required when rejecting client approval');
+    }
+    if (data.approval_status === 'APPROVED' && (!data.approved_by_client_name || !data.approved_by_client_name.trim())) {
+      throw new Error('Client representative name is required for approval');
+    }
+
+    const now = new Date().toISOString();
+    const newStatus: ServiceStatus = data.approval_status === 'APPROVED' ? 'APPROVED' : 'REJECTED';
+
+    const updatedSr: ServiceRequest = {
+      ...sr,
+      service_status: newStatus,
+      updated_at: now,
+    };
+
+    memoryDb.serviceRequests[idx] = updatedSr;
+
+    const appIdx = memoryDb.serviceApprovals.findIndex((a) => a.service_request_id === serviceRequestId);
+    if (appIdx >= 0) {
+      memoryDb.serviceApprovals[appIdx] = {
+        ...memoryDb.serviceApprovals[appIdx],
+        approval_status: data.approval_status,
+        approved_by_client_name: data.approved_by_client_name || null,
+        approved_by_client_role: data.approved_by_client_role || null,
+        approval_remarks: data.approval_remarks || null,
+        approval_reference: data.approval_reference || null,
+        approved_at: data.approval_status === 'APPROVED' ? now : null,
+        rejected_at: data.approval_status === 'REJECTED' ? now : null,
+        updated_at: now,
+      };
+    } else {
+      memoryDb.serviceApprovals.unshift({
+        id: `sa-${Date.now()}`,
+        tenant_id: sr.tenant_id,
+        service_request_id: serviceRequestId,
+        approval_status: data.approval_status,
+        approved_by_client_name: data.approved_by_client_name || null,
+        approved_by_client_role: data.approved_by_client_role || null,
+        approval_remarks: data.approval_remarks || null,
+        approval_reference: data.approval_reference || null,
+        approved_at: data.approval_status === 'APPROVED' ? now : null,
+        rejected_at: data.approval_status === 'REJECTED' ? now : null,
+        created_at: now,
+        updated_at: now,
+      });
+    }
+
+    memoryDb.addAudit(sr.tenant_id, `SERVICE_${data.approval_status}`, 'service_requests', serviceRequestId, data);
+    memoryDb.notify();
+
+    return this.getServiceRequestDetails(serviceRequestId, tenantId);
+  },
+
+  async startService(
+    tenantId: string,
+    serviceRequestId: string,
+    userId = 'usr-acme-lab-tech'
+  ): Promise<ServiceRequest> {
+    const idx = memoryDb.serviceRequests.findIndex((s) => s.id === serviceRequestId && (tenantId === 'all' || s.tenant_id === tenantId));
+    if (idx < 0) throw new Error('Service request record not found');
+
+    const sr = memoryDb.serviceRequests[idx];
+    if (sr.service_status !== 'APPROVED') {
+      throw new Error('Service can only be started after client approval');
+    }
+
+    const now = new Date().toISOString();
+    const updatedSr: ServiceRequest = {
+      ...sr,
+      service_status: 'IN_SERVICE',
+      started_by: userId,
+      started_at: now,
+      updated_at: now,
+    };
+
+    memoryDb.serviceRequests[idx] = updatedSr;
+    memoryDb.addAudit(sr.tenant_id, 'START_SERVICE', 'service_requests', serviceRequestId, updatedSr);
+    memoryDb.notify();
+
+    return this.getServiceRequestDetails(serviceRequestId, tenantId);
+  },
+
+  async completeService(
+    tenantId: string,
+    serviceRequestId: string,
+    userId = 'usr-acme-lab-tech'
+  ): Promise<ServiceRequest> {
+    const idx = memoryDb.serviceRequests.findIndex((s) => s.id === serviceRequestId && (tenantId === 'all' || s.tenant_id === tenantId));
+    if (idx < 0) throw new Error('Service request record not found');
+
+    const sr = memoryDb.serviceRequests[idx];
+    if (sr.service_status !== 'IN_SERVICE') {
+      throw new Error('Service must be IN_SERVICE before it can be marked as completed');
+    }
+
+    const now = new Date().toISOString();
+    const updatedSr: ServiceRequest = {
+      ...sr,
+      service_status: 'SERVICE_COMPLETED',
+      completed_by: userId,
+      completed_at: now,
+      updated_at: now,
+    };
+
+    memoryDb.serviceRequests[idx] = updatedSr;
+    memoryDb.addAudit(sr.tenant_id, 'COMPLETE_SERVICE', 'service_requests', serviceRequestId, updatedSr);
+    memoryDb.notify();
+
+    return this.getServiceRequestDetails(serviceRequestId, tenantId);
+  },
+
+  async returnToCalibration(
+    tenantId: string,
+    serviceRequestId: string,
+    userId = 'usr-acme-lab-tech'
+  ): Promise<ServiceRequest> {
+    const idx = memoryDb.serviceRequests.findIndex((s) => s.id === serviceRequestId && (tenantId === 'all' || s.tenant_id === tenantId));
+    if (idx < 0) throw new Error('Service request record not found');
+
+    const sr = memoryDb.serviceRequests[idx];
+    if (sr.service_status !== 'SERVICE_COMPLETED') {
+      throw new Error('Service must be SERVICE_COMPLETED before returning to re-calibration');
+    }
+
+    const now = new Date().toISOString();
+
+    const calIdx = memoryDb.calibrations.findIndex((c) => c.id === sr.calibration_id);
+    if (calIdx >= 0) {
+      memoryDb.calibrations[calIdx] = {
+        ...memoryDb.calibrations[calIdx],
+        status: 'PENDING',
+        remarks: `Returned from service (Service Req #${sr.id}). Eligible for re-calibration.`,
+        updated_at: now,
+      };
+    }
+
+    memoryDb.addAudit(sr.tenant_id, 'RETURN_TO_RE_CALIBRATION', 'service_requests', serviceRequestId, {
+      service_request_id: serviceRequestId,
+      request_item_id: sr.request_item_id,
+      returned_by: userId,
+      returned_at: now,
+    });
+
+    memoryDb.notify();
+    return this.getServiceRequestDetails(serviceRequestId, tenantId);
+  },
+
+  // ----------------------------------------------------
+  // STEP 11: VENDOR OUTSOURCING WORKFLOW & PURCHASE ORDERS
+  // ----------------------------------------------------
+  async getVendorOutsourceRequests(
+    tenantId: string,
+    params: { status?: string; search?: string; vendorId?: string } = {}
+  ) {
+    let requests = memoryDb.vendorOutsourceRequests.filter(
+      (vor) => tenantId === 'all' || vor.tenant_id === tenantId
+    );
+
+    if (params.status && params.status !== 'ALL') {
+      requests = requests.filter((vor) => vor.outsource_status === params.status);
+    }
+    if (params.vendorId && params.vendorId !== 'ALL') {
+      requests = requests.filter((vor) => vor.vendor_id === params.vendorId);
+    }
+
+    const enriched = requests.map((vor) => {
+      const vendor = memoryDb.vendors.find((v) => v.id === vor.vendor_id) || vor.vendor || null;
+      const req = memoryDb.calibrationRequests.find((r) => r.id === vor.request_id) || vor.request || null;
+      const request_item = memoryDb.requestItems.find((ri) => ri.id === vor.request_item_id) || vor.request_item || null;
+      const itemMaster = request_item?.item_id ? memoryDb.items.find((i) => i.id === request_item.item_id) : null;
+      const calibration = vor.calibration_id ? memoryDb.calibrations.find((c) => c.id === vor.calibration_id) : null;
+      const po = memoryDb.purchaseOrders.find((p) => p.outsource_request_id === vor.id);
+      const movements = memoryDb.vendorOutsourceMovements.filter((m) => m.outsource_request_id === vor.id);
+      const calRecord = memoryDb.vendorCalibrationRecords.find((vcr) => vcr.outsource_request_id === vor.id);
+
+      return {
+        ...vor,
+        vendor,
+        request: req,
+        request_item: request_item ? { ...request_item, item: itemMaster || request_item.item } : null,
+        calibration,
+        purchase_order: po || vor.purchase_order || null,
+        movements,
+        vendor_calibration_record: calRecord || vor.vendor_calibration_record || null,
+      };
+    });
+
+    if (params.search && params.search.trim()) {
+      const q = params.search.toLowerCase();
+      return enriched.filter(
+        (vor) =>
+          vor.id.toLowerCase().includes(q) ||
+          vor.outsource_reason.toLowerCase().includes(q) ||
+          (vor.vendor?.vendor_name || '').toLowerCase().includes(q) ||
+          (vor.request?.request_number || '').toLowerCase().includes(q) ||
+          (vor.request_item?.item?.item_code || '').toLowerCase().includes(q) ||
+          (vor.request_item?.item?.item_name || '').toLowerCase().includes(q) ||
+          (vor.request_item?.item?.serial_number || '').toLowerCase().includes(q)
+      );
+    }
+
+    return enriched;
+  },
+
+  async getVendorOutsourceDetails(id: string, tenantId: string): Promise<VendorOutsourceRequest> {
+    const vor = memoryDb.vendorOutsourceRequests.find(
+      (v) => v.id === id && (tenantId === 'all' || v.tenant_id === tenantId)
+    );
+    if (!vor) throw new Error('Vendor outsourcing record not found');
+
+    const vendor = memoryDb.vendors.find((v) => v.id === vor.vendor_id) || vor.vendor || null;
+    const req = memoryDb.calibrationRequests.find((r) => r.id === vor.request_id) || vor.request || null;
+    const request_item = memoryDb.requestItems.find((ri) => ri.id === vor.request_item_id) || vor.request_item || null;
+    const itemMaster = request_item?.item_id ? memoryDb.items.find((i) => i.id === request_item.item_id) : null;
+    const calibration = vor.calibration_id ? memoryDb.calibrations.find((c) => c.id === vor.calibration_id) : null;
+    const createdByUser = memoryDb.profiles.find((p) => p.id === vor.created_by) || vor.created_by_user || null;
+    const receivedByUser = vor.received_by ? memoryDb.profiles.find((p) => p.id === vor.received_by) : null;
+
+    const po = memoryDb.purchaseOrders.find((p) => p.outsource_request_id === vor.id);
+    const poEnriched = po
+      ? {
+          ...po,
+          items: memoryDb.poItems.filter((poi) => poi.purchase_order_id === po.id),
+        }
+      : null;
+
+    const movements = memoryDb.vendorOutsourceMovements.filter((m) => m.outsource_request_id === vor.id);
+    const calRecord = memoryDb.vendorCalibrationRecords.find((vcr) => vcr.outsource_request_id === vor.id);
+
+    return {
+      ...vor,
+      vendor,
+      request: req,
+      request_item: request_item ? { ...request_item, item: itemMaster || request_item.item } : null,
+      calibration,
+      created_by_user: createdByUser,
+      received_by_user: receivedByUser,
+      purchase_order: poEnriched,
+      movements,
+      vendor_calibration_record: calRecord || vor.vendor_calibration_record || null,
+    };
+  },
+
+  async createVendorOutsourceRequest(
+    tenantId: string,
+    data: {
+      request_id: string;
+      request_item_id: string;
+      calibration_id?: string;
+      vendor_id: string;
+      outsource_reason: string;
+      expected_return_date?: string;
+      remarks?: string;
+    },
+    userId = 'usr-acme-lab-tech'
+  ): Promise<VendorOutsourceRequest> {
+    const existingActive = memoryDb.vendorOutsourceRequests.find(
+      (v) =>
+        v.tenant_id === tenantId &&
+        v.request_item_id === data.request_item_id &&
+        !['REINTEGRATED', 'CANCELLED'].includes(v.outsource_status)
+    );
+    if (existingActive) {
+      throw new Error(`Item already has an active outsourcing record (${existingActive.id}) in stage ${existingActive.outsource_status}`);
+    }
+
+    const vendor = memoryDb.vendors.find((v) => v.id === data.vendor_id && v.tenant_id === tenantId);
+    if (!vendor) throw new Error('Selected vendor not found in this tenant');
+    if (vendor.status !== 'active') throw new Error('Cannot select an inactive vendor');
+
+    const now = new Date().toISOString();
+    const id = `vor-${Date.now()}`;
+
+    const newVor: VendorOutsourceRequest = {
+      id,
+      tenant_id: tenantId,
+      request_id: data.request_id,
+      request_item_id: data.request_item_id,
+      calibration_id: data.calibration_id || null,
+      vendor_id: data.vendor_id,
+      outsource_status: 'VENDOR_SELECTED',
+      outsource_reason: data.outsource_reason,
+      expected_return_date: data.expected_return_date || null,
+      remarks: data.remarks || null,
+      created_by: userId,
+      created_at: now,
+      updated_at: now,
+    };
+
+    memoryDb.vendorOutsourceRequests.unshift(newVor);
+    memoryDb.addAudit(tenantId, 'CREATE_VENDOR_OUTSOURCE', 'vendor_outsource_requests', newVor.id, newVor);
+    memoryDb.notify();
+
+    return this.getVendorOutsourceDetails(newVor.id, tenantId);
+  },
+
+  async getVendorPurchaseOrders(
+    tenantId: string,
+    params: { status?: string; search?: string; vendorId?: string } = {}
+  ) {
+    let pos = memoryDb.purchaseOrders.filter(
+      (p) => tenantId === 'all' || p.tenant_id === tenantId
+    );
+
+    if (params.status && params.status !== 'ALL') {
+      pos = pos.filter((p) => p.status === params.status);
+    }
+    if (params.vendorId && params.vendorId !== 'ALL') {
+      pos = pos.filter((p) => p.vendor_id === params.vendorId);
+    }
+
+    const enriched = pos.map((p) => {
+      const vendor = memoryDb.vendors.find((v) => v.id === p.vendor_id) || p.vendor || null;
+      const req = p.request_id ? memoryDb.calibrationRequests.find((r) => r.id === p.request_id) : null;
+      const items = memoryDb.poItems.filter((poi) => poi.purchase_order_id === p.id);
+
+      return {
+        ...p,
+        vendor,
+        request: req,
+        items,
+      };
+    });
+
+    if (params.search && params.search.trim()) {
+      const q = params.search.toLowerCase();
+      return enriched.filter(
+        (p) =>
+          p.po_number.toLowerCase().includes(q) ||
+          (p.vendor?.vendor_name || '').toLowerCase().includes(q) ||
+          (p.request?.request_number || '').toLowerCase().includes(q)
+      );
+    }
+
+    return enriched;
+  },
+
+  async getVendorPurchaseOrderDetails(id: string, tenantId: string): Promise<PurchaseOrder> {
+    const po = memoryDb.purchaseOrders.find((p) => p.id === id && (tenantId === 'all' || p.tenant_id === tenantId));
+    if (!po) throw new Error('Purchase order record not found');
+
+    const vendor = memoryDb.vendors.find((v) => v.id === po.vendor_id) || po.vendor || null;
+    const req = po.request_id ? memoryDb.calibrationRequests.find((r) => r.id === po.request_id) : null;
+    const items = memoryDb.poItems
+      .filter((poi) => poi.purchase_order_id === po.id)
+      .map((poi) => ({
+        ...poi,
+        item: memoryDb.items.find((i) => i.id === poi.item_id) || poi.item || null,
+      }));
+
+    const createdByUser = memoryDb.profiles.find((pr) => pr.id === po.created_by) || po.created_by_user || null;
+    const issuedByUser = po.issued_by ? memoryDb.profiles.find((pr) => pr.id === po.issued_by) : null;
+
+    return {
+      ...po,
+      vendor,
+      request: req,
+      items,
+      created_by_user: createdByUser,
+      issued_by_user: issuedByUser,
+    };
+  },
+
+  async createVendorPurchaseOrder(
+    tenantId: string,
+    data: {
+      vendor_id: string;
+      request_id?: string;
+      outsource_request_id?: string;
+      items: Array<{
+        request_item_id: string;
+        item_id: string;
+        description?: string;
+        quantity: number;
+        unit_cost: number;
+      }>;
+      tax_rate?: number;
+      remarks?: string;
+    },
+    userId = 'usr-acme-lab-tech'
+  ): Promise<PurchaseOrder> {
+    const vendor = memoryDb.vendors.find((v) => v.id === data.vendor_id && v.tenant_id === tenantId);
+    if (!vendor) throw new Error('Selected vendor not found in this tenant');
+
+    const subtotal = data.items.reduce((acc, item) => acc + item.quantity * item.unit_cost, 0);
+    const taxRate = data.tax_rate ?? 18;
+    const taxAmount = Number(((subtotal * taxRate) / 100).toFixed(2));
+    const totalAmount = Number((subtotal + taxAmount).toFixed(2));
+
+    const now = new Date().toISOString();
+    const poId = `po-${Date.now()}`;
+    const count = memoryDb.purchaseOrders.filter((p) => p.tenant_id === tenantId).length + 1;
+    const poNumber = `VPO-${new Date().getFullYear()}-${String(count).padStart(6, '0')}`;
+
+    const createdItems: POItem[] = data.items.map((it, idx) => {
+      const dbItem = memoryDb.items.find((i) => i.id === it.item_id);
+      return {
+        id: `poi-${poId}-${idx + 1}`,
+        tenant_id: tenantId,
+        purchase_order_id: poId,
+        request_item_id: it.request_item_id,
+        item_id: it.item_id,
+        description: it.description || dbItem?.item_name || null,
+        quantity: it.quantity,
+        unit_cost: it.unit_cost,
+        line_total: Number((it.quantity * it.unit_cost).toFixed(2)),
+        created_at: now,
+        updated_at: now,
+        item: dbItem || null,
+      };
+    });
+
+    const newPo: PurchaseOrder = {
+      id: poId,
+      tenant_id: tenantId,
+      po_number: poNumber,
+      vendor_id: data.vendor_id,
+      request_id: data.request_id || null,
+      outsource_request_id: data.outsource_request_id || null,
+      po_date: now.split('T')[0],
+      status: 'DRAFT',
+      currency: 'INR',
+      subtotal,
+      tax_amount: taxAmount,
+      total_amount: totalAmount,
+      created_by: userId,
+      created_at: now,
+      updated_at: now,
+      remarks: data.remarks || null,
+    };
+
+    memoryDb.purchaseOrders.unshift(newPo);
+    createdItems.forEach((poi) => memoryDb.poItems.push(poi));
+
+    if (data.outsource_request_id) {
+      const vorIdx = memoryDb.vendorOutsourceRequests.findIndex((v) => v.id === data.outsource_request_id);
+      if (vorIdx >= 0) {
+        memoryDb.vendorOutsourceRequests[vorIdx] = {
+          ...memoryDb.vendorOutsourceRequests[vorIdx],
+          outsource_status: 'PO_DRAFT',
+          updated_at: now,
+        };
+      }
+    }
+
+    memoryDb.addAudit(tenantId, 'CREATE_VENDOR_PO', 'purchase_orders', poId, newPo);
+    memoryDb.notify();
+
+    return this.getVendorPurchaseOrderDetails(poId, tenantId);
+  },
+
+  async issueVendorPurchaseOrder(
+    tenantId: string,
+    poId: string,
+    userId = 'usr-acme-admin'
+  ): Promise<PurchaseOrder> {
+    const poIdx = memoryDb.purchaseOrders.findIndex((p) => p.id === poId && (tenantId === 'all' || p.tenant_id === tenantId));
+    if (poIdx < 0) throw new Error('Purchase Order not found');
+
+    const po = memoryDb.purchaseOrders[poIdx];
+    if (po.status !== 'DRAFT') {
+      throw new Error(`PO is already in ${po.status} status and cannot be re-issued`);
+    }
+
+    const now = new Date().toISOString();
+    const updatedPo: PurchaseOrder = {
+      ...po,
+      status: 'ISSUED',
+      issued_by: userId,
+      issued_at: now,
+      updated_at: now,
+    };
+
+    memoryDb.purchaseOrders[poIdx] = updatedPo;
+
+    if (po.outsource_request_id) {
+      const vorIdx = memoryDb.vendorOutsourceRequests.findIndex((v) => v.id === po.outsource_request_id);
+      if (vorIdx >= 0) {
+        memoryDb.vendorOutsourceRequests[vorIdx] = {
+          ...memoryDb.vendorOutsourceRequests[vorIdx],
+          outsource_status: 'PO_ISSUED',
+          updated_at: now,
+        };
+      }
+    }
+
+    memoryDb.addAudit(po.tenant_id, 'ISSUE_VENDOR_PO', 'purchase_orders', poId, updatedPo);
+    memoryDb.notify();
+
+    return this.getVendorPurchaseOrderDetails(poId, tenantId);
+  },
+
+  async sendItemToVendor(
+    tenantId: string,
+    outsourceRequestId: string,
+    data: { carrier: string; tracking_number: string; movement_date?: string; remarks?: string; document_id?: string },
+    userId = 'usr-acme-collector'
+  ): Promise<VendorOutsourceRequest> {
+    const vorIdx = memoryDb.vendorOutsourceRequests.findIndex((v) => v.id === outsourceRequestId && (tenantId === 'all' || v.tenant_id === tenantId));
+    if (vorIdx < 0) throw new Error('Outsource request not found');
+
+    const vor = memoryDb.vendorOutsourceRequests[vorIdx];
+    const po = memoryDb.purchaseOrders.find((p) => p.outsource_request_id === outsourceRequestId);
+    if (!po || po.status !== 'ISSUED') {
+      throw new Error('Item cannot be sent to vendor before a Vendor Purchase Order is ISSUED');
+    }
+
+    const now = new Date().toISOString();
+    const movement: VendorOutsourceMovement = {
+      id: `vom-${Date.now()}`,
+      tenant_id: vor.tenant_id,
+      outsource_request_id: outsourceRequestId,
+      movement_type: 'SEND_TO_VENDOR',
+      carrier: data.carrier,
+      tracking_number: data.tracking_number,
+      movement_date: data.movement_date || now.split('T')[0],
+      performed_by: userId,
+      remarks: data.remarks || null,
+      document_id: data.document_id || null,
+      created_at: now,
+    };
+
+    memoryDb.vendorOutsourceMovements.unshift(movement);
+
+    const updatedVor: VendorOutsourceRequest = {
+      ...vor,
+      outsource_status: 'SENT_TO_VENDOR',
+      updated_at: now,
+    };
+
+    memoryDb.vendorOutsourceRequests[vorIdx] = updatedVor;
+    memoryDb.addAudit(vor.tenant_id, 'SEND_ITEM_TO_VENDOR', 'vendor_outsource_requests', outsourceRequestId, movement);
+    memoryDb.notify();
+
+    return this.getVendorOutsourceDetails(outsourceRequestId, tenantId);
+  },
+
+  async markVendorReceived(
+    tenantId: string,
+    outsourceRequestId: string,
+    data: { vendor_reference?: string; remarks?: string },
+    _userId = 'usr-acme-lab-tech'
+  ): Promise<VendorOutsourceRequest> {
+    const vorIdx = memoryDb.vendorOutsourceRequests.findIndex((v) => v.id === outsourceRequestId && (tenantId === 'all' || v.tenant_id === tenantId));
+    if (vorIdx < 0) throw new Error('Outsource request not found');
+
+    const vor = memoryDb.vendorOutsourceRequests[vorIdx];
+    if (vor.outsource_status !== 'SENT_TO_VENDOR') {
+      throw new Error('Item must be in SENT_TO_VENDOR status before marking vendor receipt');
+    }
+
+    const now = new Date().toISOString();
+    const updatedVor: VendorOutsourceRequest = {
+      ...vor,
+      outsource_status: 'VENDOR_RECEIVED',
+      vendor_reference: data.vendor_reference || vor.vendor_reference,
+      remarks: data.remarks || vor.remarks,
+      updated_at: now,
+    };
+
+    memoryDb.vendorOutsourceRequests[vorIdx] = updatedVor;
+    memoryDb.addAudit(vor.tenant_id, 'VENDOR_RECEIVED_ITEM', 'vendor_outsource_requests', outsourceRequestId, data);
+    memoryDb.notify();
+
+    return this.getVendorOutsourceDetails(outsourceRequestId, tenantId);
+  },
+
+  async startVendorCalibration(
+    tenantId: string,
+    outsourceRequestId: string,
+    _userId = 'usr-acme-lab-tech'
+  ): Promise<VendorOutsourceRequest> {
+    const vorIdx = memoryDb.vendorOutsourceRequests.findIndex((v) => v.id === outsourceRequestId && (tenantId === 'all' || v.tenant_id === tenantId));
+    if (vorIdx < 0) throw new Error('Outsource request not found');
+
+    const vor = memoryDb.vendorOutsourceRequests[vorIdx];
+    if (vor.outsource_status !== 'VENDOR_RECEIVED') {
+      throw new Error('Vendor must receive item before starting external vendor calibration');
+    }
+
+    const now = new Date().toISOString();
+    const updatedVor: VendorOutsourceRequest = {
+      ...vor,
+      outsource_status: 'VENDOR_CALIBRATION',
+      updated_at: now,
+    };
+
+    memoryDb.vendorOutsourceRequests[vorIdx] = updatedVor;
+    memoryDb.addAudit(vor.tenant_id, 'START_VENDOR_CALIBRATION', 'vendor_outsource_requests', outsourceRequestId, { started_at: now });
+    memoryDb.notify();
+
+    return this.getVendorOutsourceDetails(outsourceRequestId, tenantId);
+  },
+
+  async recordVendorCalibrationResult(
+    tenantId: string,
+    outsourceRequestId: string,
+    data: {
+      vendor_certificate_number: string;
+      vendor_result: VendorCalibrationResult;
+      calibrated_at?: string;
+      report_document_id?: string;
+      remarks?: string;
+    },
+    userId = 'usr-acme-lab-tech'
+  ): Promise<VendorOutsourceRequest> {
+    const vorIdx = memoryDb.vendorOutsourceRequests.findIndex((v) => v.id === outsourceRequestId && (tenantId === 'all' || v.tenant_id === tenantId));
+    if (vorIdx < 0) throw new Error('Outsource request not found');
+
+    const vor = memoryDb.vendorOutsourceRequests[vorIdx];
+    if (data.vendor_result === 'FAIL' || data.vendor_result === 'NOT_CALIBRATABLE') {
+      if (!data.remarks || !data.remarks.trim()) {
+        throw new Error('Mandatory failure remarks/reason are required for vendor FAIL or NOT_CALIBRATABLE results');
+      }
+    }
+
+    const now = new Date().toISOString();
+    const record: VendorCalibrationRecord = {
+      id: `vcr-${Date.now()}`,
+      tenant_id: vor.tenant_id,
+      outsource_request_id: outsourceRequestId,
+      vendor_id: vor.vendor_id,
+      vendor_certificate_number: data.vendor_certificate_number,
+      vendor_result: data.vendor_result,
+      calibrated_at: data.calibrated_at || now.split('T')[0],
+      report_received_at: now,
+      report_document_id: data.report_document_id || null,
+      remarks: data.remarks || null,
+      created_by: userId,
+      created_at: now,
+      updated_at: now,
+    };
+
+    memoryDb.vendorCalibrationRecords.unshift(record);
+
+    const isFail = data.vendor_result === 'FAIL' || data.vendor_result === 'NOT_CALIBRATABLE';
+    const updatedVor: VendorOutsourceRequest = {
+      ...vor,
+      outsource_status: isFail ? 'VENDOR_FAILED' : 'VENDOR_COMPLETED',
+      updated_at: now,
+    };
+
+    memoryDb.vendorOutsourceRequests[vorIdx] = updatedVor;
+    memoryDb.addAudit(vor.tenant_id, isFail ? 'VENDOR_CALIBRATION_FAILED' : 'RECORD_VENDOR_CALIBRATION', 'vendor_calibration_records', record.id, record);
+    memoryDb.notify();
+
+    return this.getVendorOutsourceDetails(outsourceRequestId, tenantId);
+  },
+
+  async recordVendorReturn(
+    tenantId: string,
+    outsourceRequestId: string,
+    data: { carrier: string; tracking_number: string; return_date?: string; remarks?: string; document_id?: string },
+    userId = 'usr-acme-collector'
+  ): Promise<VendorOutsourceRequest> {
+    const vorIdx = memoryDb.vendorOutsourceRequests.findIndex((v) => v.id === outsourceRequestId && (tenantId === 'all' || v.tenant_id === tenantId));
+    if (vorIdx < 0) throw new Error('Outsource request not found');
+
+    const vor = memoryDb.vendorOutsourceRequests[vorIdx];
+    const now = new Date().toISOString();
+
+    const movement: VendorOutsourceMovement = {
+      id: `vom-${Date.now()}`,
+      tenant_id: vor.tenant_id,
+      outsource_request_id: outsourceRequestId,
+      movement_type: 'RETURN_FROM_VENDOR',
+      carrier: data.carrier,
+      tracking_number: data.tracking_number,
+      movement_date: data.return_date || now.split('T')[0],
+      performed_by: userId,
+      remarks: data.remarks || null,
+      document_id: data.document_id || null,
+      created_at: now,
+    };
+
+    memoryDb.vendorOutsourceMovements.unshift(movement);
+
+    const updatedVor: VendorOutsourceRequest = {
+      ...vor,
+      outsource_status: 'AWAITING_RETURN',
+      updated_at: now,
+    };
+
+    memoryDb.vendorOutsourceRequests[vorIdx] = updatedVor;
+    memoryDb.addAudit(vor.tenant_id, 'VENDOR_RETURN_SHIPPED', 'vendor_outsource_requests', outsourceRequestId, movement);
+    memoryDb.notify();
+
+    return this.getVendorOutsourceDetails(outsourceRequestId, tenantId);
+  },
+
+  async receiveItemBack(
+    tenantId: string,
+    outsourceRequestId: string,
+    data: { remarks?: string },
+    userId = 'usr-acme-lab-tech'
+  ): Promise<VendorOutsourceRequest> {
+    const vorIdx = memoryDb.vendorOutsourceRequests.findIndex((v) => v.id === outsourceRequestId && (tenantId === 'all' || v.tenant_id === tenantId));
+    if (vorIdx < 0) throw new Error('Outsource request not found');
+
+    const vor = memoryDb.vendorOutsourceRequests[vorIdx];
+    const now = new Date().toISOString();
+
+    const updatedVor: VendorOutsourceRequest = {
+      ...vor,
+      outsource_status: 'RECEIVED_BACK',
+      received_by: userId,
+      returned_at: now,
+      remarks: data.remarks || vor.remarks,
+      updated_at: now,
+    };
+
+    memoryDb.vendorOutsourceRequests[vorIdx] = updatedVor;
+    memoryDb.addAudit(vor.tenant_id, 'ITEM_RECEIVED_BACK', 'vendor_outsource_requests', outsourceRequestId, { received_at: now });
+    memoryDb.notify();
+
+    return this.getVendorOutsourceDetails(outsourceRequestId, tenantId);
+  },
+
+  async reintegrateIntoMainFlow(
+    tenantId: string,
+    outsourceRequestId: string,
+    _userId = 'usr-acme-lab-tech'
+  ): Promise<VendorOutsourceRequest> {
+    const vorIdx = memoryDb.vendorOutsourceRequests.findIndex((v) => v.id === outsourceRequestId && (tenantId === 'all' || v.tenant_id === tenantId));
+    if (vorIdx < 0) throw new Error('Outsource request not found');
+
+    const vor = memoryDb.vendorOutsourceRequests[vorIdx];
+    if (vor.outsource_status !== 'RECEIVED_BACK') {
+      throw new Error('Item must be RECEIVED_BACK before it can be reintegrated into main calibration flow');
+    }
+
+    const vcr = memoryDb.vendorCalibrationRecords.find((v) => v.outsource_request_id === outsourceRequestId);
+    if (!vcr || (vcr.vendor_result !== 'PASS' && vcr.vendor_result !== 'ADJUSTED')) {
+      throw new Error('Only items with vendor calibration result PASS or ADJUSTED can be reintegrated as CALIBRATED');
+    }
+
+    const now = new Date().toISOString();
+    const updatedVor: VendorOutsourceRequest = {
+      ...vor,
+      outsource_status: 'REINTEGRATED',
+      updated_at: now,
+    };
+
+    memoryDb.vendorOutsourceRequests[vorIdx] = updatedVor;
+
+    if (vor.calibration_id) {
+      const calIdx = memoryDb.calibrations.findIndex((c) => c.id === vor.calibration_id);
+      if (calIdx >= 0) {
+        memoryDb.calibrations[calIdx] = {
+          ...memoryDb.calibrations[calIdx],
+          status: 'COMPLETED',
+          result: vcr.vendor_result,
+          remarks: `Reintegrated from Vendor Outsourcing (${vor.vendor?.vendor_name || 'Vendor'}). Certificate #${vcr.vendor_certificate_number}`,
+          calibration_date: vcr.calibrated_at || now.split('T')[0],
+          updated_at: now,
+        };
+      }
+    }
+
+    memoryDb.addAudit(vor.tenant_id, 'REINTEGRATE_VENDOR_OUTSOURCE', 'vendor_outsource_requests', outsourceRequestId, {
+      reintegrated_at: now,
+      vendor_certificate_number: vcr.vendor_certificate_number,
+    });
+    memoryDb.notify();
+
+    return this.getVendorOutsourceDetails(outsourceRequestId, tenantId);
+  },
+
+  // =========================================================================
+  // STEP 12: COMMERCIAL QUOTATIONS WORKFLOW
+  // =========================================================================
+
+  async getQuotations(
+    tenantId: string,
+    filters: { status?: string; search?: string; clientId?: string } = {}
+  ): Promise<Quotation[]> {
+    return memoryDb.quotations
+      .filter((q) => {
+        if (tenantId !== 'all' && q.tenant_id !== tenantId) return false;
+        if (filters.status && filters.status !== 'ALL' && q.status !== filters.status) return false;
+        if (filters.clientId && q.client_id !== filters.clientId) return false;
+        if (filters.search) {
+          const s = filters.search.toLowerCase();
+          const matchNo = q.quotation_number.toLowerCase().includes(s);
+          const matchClient = q.client?.client_name?.toLowerCase().includes(s);
+          const matchReq = q.request?.request_number?.toLowerCase().includes(s);
+          if (!matchNo && !matchClient && !matchReq) return false;
+        }
+        return true;
+      })
+      .map((q) => ({
+        ...q,
+        client: memoryDb.clients.find((c) => c.id === q.client_id) || q.client,
+        request: memoryDb.calibrationRequests.find((r) => r.id === q.request_id) || q.request,
+        items: memoryDb.quotationItems
+          .filter((qi) => qi.quotation_id === q.id)
+          .map((qi) => ({
+            ...qi,
+            item: memoryDb.items.find((i) => i.id === qi.item_id) || qi.item,
+            request_item: memoryDb.requestItems.find((ri) => ri.id === qi.request_item_id) || qi.request_item,
+          })),
+        approvals: memoryDb.quotationApprovals.filter((qa) => qa.quotation_id === q.id),
+      }));
+  },
+
+  async getQuotationDetails(quotationId: string, tenantId: string): Promise<Quotation> {
+    const q = memoryDb.quotations.find((quo) => quo.id === quotationId && (tenantId === 'all' || quo.tenant_id === tenantId));
+    if (!q) throw new Error('Quotation not found');
+
+    const client = memoryDb.clients.find((c) => c.id === q.client_id) || null;
+    const request = memoryDb.calibrationRequests.find((r) => r.id === q.request_id) || null;
+
+    const items = memoryDb.quotationItems
+      .filter((qi) => qi.quotation_id === q.id)
+      .map((qi) => ({
+        ...qi,
+        item: memoryDb.items.find((i) => i.id === qi.item_id) || null,
+        request_item: memoryDb.requestItems.find((ri) => ri.id === qi.request_item_id) || null,
+      }));
+
+    const approvals = memoryDb.quotationApprovals
+      .filter((qa) => qa.quotation_id === q.id)
+      .map((qa) => ({
+        ...qa,
+        requested_by_user: memoryDb.profiles.find((p) => p.id === qa.requested_by) || null,
+        approved_by_user: memoryDb.profiles.find((p) => p.id === qa.approved_by) || null,
+      }));
+
+    return {
+      ...q,
+      client,
+      request,
+      items,
+      approvals,
+      created_by_user: memoryDb.profiles.find((p) => p.id === q.created_by) || null,
+      approved_by_user: memoryDb.profiles.find((p) => p.id === q.approved_by) || null,
+    };
+  },
+
+  async getEligibleRequestItemsForQuotation(requestId: string, tenantId: string) {
+    const reqItems = memoryDb.requestItems.filter((ri) => ri.request_id === requestId && (tenantId === 'all' || ri.tenant_id === tenantId));
+
+    const eligible = [];
+    for (const ri of reqItems) {
+      const item = memoryDb.items.find((i) => i.id === ri.item_id);
+      
+      // Check 1: Internal Calibration Completed with PASS or ADJUSTED
+      const internalCal = memoryDb.calibrations.find(
+        (c) => c.request_item_id === ri.id && (c.result === 'PASS' || c.result === 'ADJUSTED') && c.status === 'COMPLETED'
+      );
+
+      // Check 2: Vendor Outsourcing Completed & Reintegrated with PASS or ADJUSTED
+      const vor = memoryDb.vendorOutsourceRequests.find(
+        (v) => v.request_item_id === ri.id && v.outsource_status === 'REINTEGRATED'
+      );
+      const vcr = vor ? memoryDb.vendorCalibrationRecords.find((r) => r.outsource_request_id === vor.id) : null;
+      const vendorPassed = vor && vcr && (vcr.vendor_result === 'PASS' || vcr.vendor_result === 'ADJUSTED');
+
+      if (internalCal || vendorPassed) {
+        eligible.push({
+          request_item_id: ri.id,
+          item_id: ri.item_id,
+          item_code: item?.item_code || 'ITEM',
+          item_name: item?.item_name || 'Instrument',
+          serial_number: item?.serial_number || 'N/A',
+          quantity: ri.requested_quantity || 1,
+          calibration_result: internalCal ? internalCal.result : vcr?.vendor_result || 'PASS',
+          calibration_source: internalCal ? ('INTERNAL' as const) : ('VENDOR' as const),
+          standard_cost: item?.standard_cost || 12500.0,
+          item,
+          request_item: ri,
+        });
+      }
+    }
+
+    return eligible;
+  },
+
+  async createQuotation(
+    tenantId: string,
+    data: {
+      request_id: string;
+      client_id: string;
+      valid_until: string;
+      currency?: string;
+      discount_amount?: number;
+      remarks?: string;
+      items: {
+        request_item_id: string;
+        item_id: string;
+        description?: string;
+        quantity: number;
+        override_cost?: number;
+        override_reason?: string;
+        tax_rate?: number;
+      }[];
+    },
+    userId = 'usr-acme-lab-tech'
+  ): Promise<Quotation> {
+    const client = memoryDb.clients.find((c) => c.id === data.client_id && (tenantId === 'all' || c.tenant_id === tenantId));
+    if (!client) throw new Error('Client not found or tenant context invalid');
+
+    const request = memoryDb.calibrationRequests.find((r) => r.id === data.request_id && (tenantId === 'all' || r.tenant_id === tenantId));
+    if (!request) throw new Error('Calibration request not found');
+
+    if (request.client_id !== data.client_id) {
+      throw new Error('Client mismatch: Calibration request does not belong to the selected Client');
+    }
+
+    const eligibleItems = await this.getEligibleRequestItemsForQuotation(data.request_id, tenantId);
+    if (eligibleItems.length === 0) {
+      throw new Error('No eligible calibrated items available for quotation in this request');
+    }
+
+    // Validate item uniqueness and eligibility
+    const selectedItemIds = new Set<string>();
+    const createdQuotationItems: QuotationItem[] = [];
+    let subtotal = 0;
+    let totalTax = 0;
+
+    const quoId = `quo-${Date.now()}`;
+    const quoNumber = `QUO-2026-${String(memoryDb.quotations.length + 1).padStart(6, '0')}`;
+    const now = new Date().toISOString();
+
+    for (const itemInput of data.items) {
+      if (selectedItemIds.has(itemInput.request_item_id)) {
+        throw new Error(`Duplicate quotation item line for request item ${itemInput.request_item_id}`);
+      }
+      selectedItemIds.add(itemInput.request_item_id);
+
+      const eligible = eligibleItems.find((e) => e.request_item_id === itemInput.request_item_id);
+      if (!eligible) {
+        throw new Error(`Item ${itemInput.request_item_id} is not eligible for quotation`);
+      }
+
+      const standardCost = eligible.standard_cost;
+      const isOverride = itemInput.override_cost !== undefined && itemInput.override_cost !== null && itemInput.override_cost !== standardCost;
+
+      if (isOverride && (!itemInput.override_reason || !itemInput.override_reason.trim())) {
+        throw new Error('Mandatory override reason is required when overriding standard item cost');
+      }
+
+      const finalUnitCost = isOverride ? (itemInput.override_cost as number) : standardCost;
+      const qty = itemInput.quantity || 1;
+      const lineSubtotal = qty * finalUnitCost;
+      const taxRate = itemInput.tax_rate !== undefined ? itemInput.tax_rate : 18.0;
+      const taxAmount = (lineSubtotal * taxRate) / 100;
+      const lineTotal = lineSubtotal + taxAmount;
+
+      subtotal += lineSubtotal;
+      totalTax += taxAmount;
+
+      const qi: QuotationItem = {
+        id: `qi-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        tenant_id: tenantId,
+        quotation_id: quoId,
+        request_item_id: itemInput.request_item_id,
+        item_id: itemInput.item_id,
+        description: itemInput.description || `Calibration of ${eligible.item_name}`,
+        quantity: qty,
+        standard_cost: standardCost,
+        override_cost: isOverride ? itemInput.override_cost : null,
+        final_unit_cost: finalUnitCost,
+        tax_rate: taxRate,
+        tax_amount: taxAmount,
+        line_total: lineTotal,
+        override_reason: isOverride ? itemInput.override_reason : null,
+        override_by: isOverride ? userId : null,
+        override_at: isOverride ? now : null,
+        created_at: now,
+        updated_at: now,
+        item: eligible.item,
+        request_item: eligible.request_item,
+        calibration_source: eligible.calibration_source,
+      };
+
+      createdQuotationItems.push(qi);
+    }
+
+    const discountAmount = data.discount_amount || 0;
+    const totalAmount = Math.max(0, subtotal + totalTax - discountAmount);
+
+    const newQuotation: Quotation = {
+      id: quoId,
+      tenant_id: tenantId,
+      organization_id: client.organization_id || null,
+      sub_org_id: client.sub_org_id || null,
+      quotation_number: quoNumber,
+      request_id: data.request_id,
+      client_id: data.client_id,
+      quotation_date: now.split('T')[0],
+      valid_until: data.valid_until,
+      status: 'DRAFT',
+      subtotal,
+      tax_amount: totalTax,
+      discount_amount: discountAmount,
+      total_amount: totalAmount,
+      currency: data.currency || 'INR',
+      version_number: 1,
+      created_by: userId,
+      client_response: 'PENDING',
+      remarks: data.remarks || null,
+      created_at: now,
+      updated_at: now,
+      client,
+      request,
+      items: createdQuotationItems,
+      approvals: [],
+    };
+
+    memoryDb.quotations.unshift(newQuotation);
+    createdQuotationItems.forEach((qi) => memoryDb.quotationItems.push(qi));
+
+    memoryDb.addAudit(tenantId, 'CREATE_QUOTATION', 'quotations', quoId, newQuotation);
+    memoryDb.notify();
+
+    return this.getQuotationDetails(quoId, tenantId);
+  },
+
+  async submitQuotationForApproval(
+    tenantId: string,
+    quotationId: string,
+    data: { remarks?: string },
+    userId = 'usr-acme-lab-tech'
+  ): Promise<Quotation> {
+    const qIdx = memoryDb.quotations.findIndex((q) => q.id === quotationId && (tenantId === 'all' || q.tenant_id === tenantId));
+    if (qIdx < 0) throw new Error('Quotation not found');
+
+    const quo = memoryDb.quotations[qIdx];
+    if (quo.status !== 'DRAFT') {
+      throw new Error(`Quotation is in ${quo.status} status and cannot be submitted for approval`);
+    }
+
+    const now = new Date().toISOString();
+    const updatedQuo: Quotation = {
+      ...quo,
+      status: 'PENDING_APPROVAL',
+      updated_at: now,
+    };
+
+    const approvalEntry: QuotationApproval = {
+      id: `qa-${Date.now()}`,
+      tenant_id: quo.tenant_id,
+      quotation_id: quotationId,
+      approval_status: 'PENDING',
+      requested_by: userId,
+      approval_remarks: data.remarks || null,
+      requested_at: now,
+      requested_by_user: memoryDb.profiles.find((p) => p.id === userId) || null,
+    };
+
+    memoryDb.quotations[qIdx] = updatedQuo;
+    memoryDb.quotationApprovals.unshift(approvalEntry);
+
+    memoryDb.addAudit(quo.tenant_id, 'SUBMIT_QUOTATION_FOR_APPROVAL', 'quotations', quotationId, approvalEntry);
+    memoryDb.notify();
+
+    return this.getQuotationDetails(quotationId, tenantId);
+  },
+
+  async approveInternalQuotation(
+    tenantId: string,
+    quotationId: string,
+    data: { action: 'APPROVE' | 'REJECT'; remarks?: string },
+    userId = 'usr-acme-lab-mgr'
+  ): Promise<Quotation> {
+    const qIdx = memoryDb.quotations.findIndex((q) => q.id === quotationId && (tenantId === 'all' || q.tenant_id === tenantId));
+    if (qIdx < 0) throw new Error('Quotation not found');
+
+    const quo = memoryDb.quotations[qIdx];
+    if (quo.status !== 'PENDING_APPROVAL') {
+      throw new Error('Quotation must be in PENDING_APPROVAL status to perform internal approval action');
+    }
+
+    const now = new Date().toISOString();
+    const isApprove = data.action === 'APPROVE';
+
+    if (!isApprove && (!data.remarks || !data.remarks.trim())) {
+      throw new Error('Mandatory rejection remarks are required when rejecting a quotation');
+    }
+
+    const updatedQuo: Quotation = {
+      ...quo,
+      status: isApprove ? 'APPROVED' : 'DRAFT',
+      approved_by: isApprove ? userId : quo.approved_by,
+      approved_at: isApprove ? now : quo.approved_at,
+      updated_at: now,
+    };
+
+    const appIdx = memoryDb.quotationApprovals.findIndex((qa) => qa.quotation_id === quotationId && qa.approval_status === 'PENDING');
+    if (appIdx >= 0) {
+      memoryDb.quotationApprovals[appIdx] = {
+        ...memoryDb.quotationApprovals[appIdx],
+        approval_status: isApprove ? 'APPROVED' : 'REJECTED',
+        approved_by: userId,
+        approval_remarks: data.remarks || memoryDb.quotationApprovals[appIdx].approval_remarks,
+        approved_at: isApprove ? now : null,
+        rejected_at: isApprove ? null : now,
+        approved_by_user: memoryDb.profiles.find((p) => p.id === userId) || null,
+      };
+    }
+
+    memoryDb.quotations[qIdx] = updatedQuo;
+    memoryDb.addAudit(quo.tenant_id, isApprove ? 'QUOTATION_APPROVED' : 'QUOTATION_REJECTED', 'quotations', quotationId, {
+      approved_by: userId,
+      action: data.action,
+      remarks: data.remarks,
+    });
+    memoryDb.notify();
+
+    return this.getQuotationDetails(quotationId, tenantId);
+  },
+
+  async sendQuotationToClient(
+    tenantId: string,
+    quotationId: string,
+    _userId = 'usr-acme-admin'
+  ): Promise<Quotation> {
+    const qIdx = memoryDb.quotations.findIndex((q) => q.id === quotationId && (tenantId === 'all' || q.tenant_id === tenantId));
+    if (qIdx < 0) throw new Error('Quotation not found');
+
+    const quo = memoryDb.quotations[qIdx];
+    if (quo.status !== 'APPROVED') {
+      throw new Error('Quotation must be internally APPROVED before sending to client');
+    }
+
+    const now = new Date().toISOString();
+    const updatedQuo: Quotation = {
+      ...quo,
+      status: 'SENT_TO_CLIENT',
+      sent_at: now,
+      updated_at: now,
+    };
+
+    memoryDb.quotations[qIdx] = updatedQuo;
+    memoryDb.addAudit(quo.tenant_id, 'QUOTATION_SENT_TO_CLIENT', 'quotations', quotationId, { sent_at: now });
+    memoryDb.notify();
+
+    return this.getQuotationDetails(quotationId, tenantId);
+  },
+
+  async recordClientQuotationResponse(
+    tenantId: string,
+    quotationId: string,
+    data: { response: 'APPROVED' | 'REJECTED'; remarks?: string; reference_number?: string },
+    _userId = 'usr-acme-admin'
+  ): Promise<Quotation> {
+    const qIdx = memoryDb.quotations.findIndex((q) => q.id === quotationId && (tenantId === 'all' || q.tenant_id === tenantId));
+    if (qIdx < 0) throw new Error('Quotation not found');
+
+    const quo = memoryDb.quotations[qIdx];
+    if (quo.status !== 'SENT_TO_CLIENT') {
+      throw new Error('Quotation must be SENT_TO_CLIENT before recording client response');
+    }
+
+    const now = new Date().toISOString();
+    const isClientApproved = data.response === 'APPROVED';
+
+    const updatedQuo: Quotation = {
+      ...quo,
+      status: isClientApproved ? 'CLIENT_APPROVED' : 'CLIENT_REJECTED',
+      client_response: data.response,
+      client_response_at: now,
+      client_response_remarks: data.remarks || null,
+      updated_at: now,
+    };
+
+    memoryDb.quotations[qIdx] = updatedQuo;
+    memoryDb.addAudit(
+      quo.tenant_id,
+      isClientApproved ? 'CLIENT_APPROVED_QUOTATION' : 'CLIENT_REJECTED_QUOTATION',
+      'quotations',
+      quotationId,
+      { client_response_at: now, response: data.response, remarks: data.remarks }
+    );
+    memoryDb.notify();
+
+    return this.getQuotationDetails(quotationId, tenantId);
+  },
+
+  async createQuotationRevision(
+    tenantId: string,
+    quotationId: string,
+    userId = 'usr-acme-admin'
+  ): Promise<Quotation> {
+    const quo = await this.getQuotationDetails(quotationId, tenantId);
+    if (!quo) throw new Error('Quotation not found');
+
+    const now = new Date().toISOString();
+    const newVersion = quo.version_number + 1;
+    const revId = `quo-${Date.now()}`;
+
+    const revItems: QuotationItem[] = (quo.items || []).map((qi) => ({
+      ...qi,
+      id: `qi-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      quotation_id: revId,
+      created_at: now,
+      updated_at: now,
+    }));
+
+    const revQuotation: Quotation = {
+      ...quo,
+      id: revId,
+      version_number: newVersion,
+      parent_quotation_id: quo.id,
+      status: 'DRAFT',
+      created_by: userId,
+      approved_by: null,
+      approved_at: null,
+      sent_at: null,
+      client_response_at: null,
+      client_response: 'PENDING',
+      client_response_remarks: null,
+      created_at: now,
+      updated_at: now,
+      items: revItems,
+      approvals: [],
+    };
+
+    memoryDb.quotations.unshift(revQuotation);
+    revItems.forEach((qi) => memoryDb.quotationItems.push(qi));
+
+    memoryDb.addAudit(tenantId, 'QUOTATION_REVISED', 'quotations', revId, {
+      parent_quotation_id: quo.id,
+      version_number: newVersion,
+    });
+    memoryDb.notify();
+
+    return this.getQuotationDetails(revId, tenantId);
+  },
+
+  // =========================================================================
+  // STEP 13: COMMERCIAL INVOICES WORKFLOW
+  // =========================================================================
+
+  async getInvoices(
+    tenantId: string,
+    filters: { status?: string; invoiceType?: string; search?: string; clientId?: string } = {}
+  ): Promise<Invoice[]> {
+    return memoryDb.invoices
+      .filter((inv) => {
+        if (tenantId !== 'all' && inv.tenant_id !== tenantId) return false;
+        if (filters.status && filters.status !== 'ALL' && inv.status !== filters.status) return false;
+        if (filters.invoiceType && filters.invoiceType !== 'ALL' && inv.invoice_type !== filters.invoiceType) return false;
+        if (filters.clientId && inv.client_id !== filters.clientId) return false;
+        if (filters.search) {
+          const s = filters.search.toLowerCase();
+          const matchNo = inv.invoice_number.toLowerCase().includes(s);
+          const matchClient = inv.client?.client_name?.toLowerCase().includes(s);
+          const matchQuo = inv.quotation?.quotation_number?.toLowerCase().includes(s);
+          if (!matchNo && !matchClient && !matchQuo) return false;
+        }
+        return true;
+      })
+      .map((inv) => ({
+        ...inv,
+        client: memoryDb.clients.find((c) => c.id === inv.client_id) || inv.client,
+        request: memoryDb.calibrationRequests.find((r) => r.id === inv.request_id) || inv.request,
+        quotation: memoryDb.quotations.find((q) => q.id === inv.quotation_id) || inv.quotation,
+        items: memoryDb.invoiceItems
+          .filter((ii) => ii.invoice_id === inv.id)
+          .map((ii) => ({
+            ...ii,
+            item: memoryDb.items.find((i) => i.id === ii.item_id) || ii.item,
+            request_item: memoryDb.requestItems.find((ri) => ri.id === ii.request_item_id) || ii.request_item,
+            quotation_item: memoryDb.quotationItems.find((qi) => qi.id === ii.quotation_item_id) || ii.quotation_item,
+          })),
+      }));
+  },
+
+  async getInvoiceDetails(invoiceId: string, tenantId: string): Promise<Invoice> {
+    const inv = memoryDb.invoices.find((i) => i.id === invoiceId && (tenantId === 'all' || i.tenant_id === tenantId));
+    if (!inv) throw new Error('Invoice not found');
+
+    const client = memoryDb.clients.find((c) => c.id === inv.client_id) || null;
+    const request = memoryDb.calibrationRequests.find((r) => r.id === inv.request_id) || null;
+    const quotation = memoryDb.quotations.find((q) => q.id === inv.quotation_id) || null;
+
+    const items = memoryDb.invoiceItems
+      .filter((ii) => ii.invoice_id === inv.id)
+      .map((ii) => ({
+        ...ii,
+        item: memoryDb.items.find((i) => i.id === ii.item_id) || null,
+        request_item: memoryDb.requestItems.find((ri) => ri.id === ii.request_item_id) || null,
+        quotation_item: memoryDb.quotationItems.find((qi) => qi.id === ii.quotation_item_id) || null,
+      }));
+
+    return {
+      ...inv,
+      client,
+      request,
+      quotation,
+      items,
+      created_by_user: memoryDb.profiles.find((p) => p.id === inv.created_by) || null,
+    };
+  },
+
+  async getEligibleQuotationItemsForInvoice(quotationId: string, tenantId: string) {
+    const quo = memoryDb.quotations.find((q) => q.id === quotationId && (tenantId === 'all' || q.tenant_id === tenantId));
+    if (!quo) throw new Error('Quotation not found');
+
+    if (quo.status !== 'CLIENT_APPROVED') {
+      throw new Error('Invoices can ONLY be generated against CLIENT_APPROVED quotations');
+    }
+
+    const quoItems = memoryDb.quotationItems.filter((qi) => qi.quotation_id === quotationId);
+    
+    // Find all already invoiced request_item_ids for this quotation
+    const existingInvoices = memoryDb.invoices.filter((inv) => inv.quotation_id === quotationId && inv.status !== 'CANCELLED');
+    const invoicedReqItemIds = new Set<string>();
+
+    existingInvoices.forEach((inv) => {
+      const items = memoryDb.invoiceItems.filter((ii) => ii.invoice_id === inv.id);
+      items.forEach((ii) => invoicedReqItemIds.add(ii.request_item_id));
+    });
+
+    const eligible = [];
+    const remaining = [];
+
+    for (const qi of quoItems) {
+      const item = memoryDb.items.find((i) => i.id === qi.item_id);
+      const requestItem = memoryDb.requestItems.find((ri) => ri.id === qi.request_item_id);
+      const isAlreadyInvoiced = invoicedReqItemIds.has(qi.request_item_id);
+
+      const row = {
+        quotation_item_id: qi.id,
+        request_item_id: qi.request_item_id,
+        item_id: qi.item_id,
+        item_code: item?.item_code || 'ITEM',
+        item_name: item?.item_name || 'Instrument',
+        serial_number: item?.serial_number || 'N/A',
+        quantity: qi.quantity,
+        unit_price: qi.final_unit_cost,
+        tax_rate: qi.tax_rate,
+        line_total: qi.line_total,
+        is_already_invoiced: isAlreadyInvoiced,
+        item,
+        request_item: requestItem,
+        quotation_item: qi,
+      };
+
+      if (!isAlreadyInvoiced) {
+        eligible.push(row);
+      } else {
+        remaining.push(row);
+      }
+    }
+
+    return {
+      quotation: quo,
+      eligible_items: eligible,
+      already_invoiced_items: remaining,
+    };
+  },
+
+  async createInvoice(
+    tenantId: string,
+    data: {
+      quotation_id: string;
+      invoice_type: InvoiceType;
+      due_date: string;
+      currency?: string;
+      urgent_reason?: string;
+      remarks?: string;
+      items: {
+        request_item_id: string;
+        item_id: string;
+        quotation_item_id?: string;
+        description?: string;
+        quantity: number;
+        unit_price?: number;
+        tax_rate?: number;
+        discount_amount?: number;
+      }[];
+    },
+    userId = 'usr-acme-admin'
+  ): Promise<Invoice> {
+    const quo = memoryDb.quotations.find((q) => q.id === data.quotation_id && (tenantId === 'all' || q.tenant_id === tenantId));
+    if (!quo) throw new Error('Quotation not found');
+
+    if (quo.status !== 'CLIENT_APPROVED') {
+      throw new Error('Invoices can ONLY be generated against CLIENT_APPROVED quotations');
+    }
+
+    if (data.invoice_type === 'URGENT' && (!data.urgent_reason || !data.urgent_reason.trim())) {
+      throw new Error('Mandatory urgent reason is required when creating an URGENT invoice');
+    }
+
+    const { eligible_items } = await this.getEligibleQuotationItemsForInvoice(data.quotation_id, tenantId);
+
+    // Duplicate Check & Transactional Integrity
+    const selectedItemIds = new Set<string>();
+    const createdInvoiceItems: InvoiceItem[] = [];
+    let subtotal = 0;
+    let totalTax = 0;
+    let totalDiscount = 0;
+
+    const invId = `inv-${Date.now()}`;
+    const invNumber = `INV-2026-${String(memoryDb.invoices.length + 1).padStart(6, '0')}`;
+    const now = new Date().toISOString();
+
+    for (const itemInput of data.items) {
+      if (selectedItemIds.has(itemInput.request_item_id)) {
+        throw new Error(`Duplicate line item submission for request item ${itemInput.request_item_id}`);
+      }
+      selectedItemIds.add(itemInput.request_item_id);
+
+      const eligible = eligible_items.find((e) => e.request_item_id === itemInput.request_item_id);
+      if (!eligible) {
+        throw new Error(`Item ${itemInput.request_item_id} is already invoiced or not eligible for this quotation (HTTP 409 Conflict)`);
+      }
+
+      const unitPrice = itemInput.unit_price !== undefined ? itemInput.unit_price : eligible.unit_price;
+      const qty = itemInput.quantity || 1;
+      const lineSub = qty * unitPrice;
+      const taxRate = itemInput.tax_rate !== undefined ? itemInput.tax_rate : 18.0;
+      const taxAmount = (lineSub * taxRate) / 100;
+      const discountAmount = itemInput.discount_amount || 0;
+      const lineTotal = Math.max(0, lineSub + taxAmount - discountAmount);
+
+      subtotal += lineSub;
+      totalTax += taxAmount;
+      totalDiscount += discountAmount;
+
+      const ii: InvoiceItem = {
+        id: `inv-item-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        tenant_id: tenantId,
+        invoice_id: invId,
+        request_item_id: itemInput.request_item_id,
+        item_id: itemInput.item_id,
+        quotation_item_id: eligible.quotation_item_id,
+        description: itemInput.description || `Commercial Invoice line for ${eligible.item_name}`,
+        quantity: qty,
+        unit_price: unitPrice,
+        tax_rate: taxRate,
+        tax_amount: taxAmount,
+        discount_amount: discountAmount,
+        line_total: lineTotal,
+        created_at: now,
+        updated_at: now,
+        item: eligible.item,
+        request_item: eligible.request_item,
+        quotation_item: eligible.quotation_item,
+      };
+
+      createdInvoiceItems.push(ii);
+    }
+
+    const totalAmount = Math.max(0, subtotal + totalTax - totalDiscount);
+
+    const newInvoice: Invoice = {
+      id: invId,
+      tenant_id: tenantId,
+      organization_id: quo.organization_id || null,
+      sub_org_id: quo.sub_org_id || null,
+      invoice_number: invNumber,
+      quotation_id: data.quotation_id,
+      request_id: quo.request_id,
+      client_id: quo.client_id,
+      invoice_date: now.split('T')[0],
+      due_date: data.due_date,
+      invoice_type: data.invoice_type,
+      status: 'DRAFT',
+      currency: data.currency || 'INR',
+      subtotal,
+      tax_amount: totalTax,
+      discount_amount: totalDiscount,
+      total_amount: totalAmount,
+      urgent_reason: data.urgent_reason || null,
+      remarks: data.remarks || null,
+      created_by: userId,
+      created_at: now,
+      updated_at: now,
+      client: memoryDb.clients.find((c) => c.id === quo.client_id) || null,
+      request: memoryDb.calibrationRequests.find((r) => r.id === quo.request_id) || null,
+      quotation: quo,
+      items: createdInvoiceItems,
+    };
+
+    memoryDb.invoices.unshift(newInvoice);
+    createdInvoiceItems.forEach((ii) => memoryDb.invoiceItems.push(ii));
+
+    memoryDb.addAudit(tenantId, 'CREATE_INVOICE', 'invoices', invId, newInvoice);
+    memoryDb.notify();
+
+    return this.getInvoiceDetails(invId, tenantId);
+  },
+
+  async markInvoiceReady(
+    tenantId: string,
+    invoiceId: string,
+    data: { remarks?: string },
+    _userId = 'usr-acme-admin'
+  ): Promise<Invoice> {
+    const invIdx = memoryDb.invoices.findIndex((i) => i.id === invoiceId && (tenantId === 'all' || i.tenant_id === tenantId));
+    if (invIdx < 0) throw new Error('Invoice not found');
+
+    const inv = memoryDb.invoices[invIdx];
+    if (inv.status !== 'DRAFT') {
+      throw new Error(`Invoice is in ${inv.status} status and cannot be marked READY`);
+    }
+
+    const now = new Date().toISOString();
+    const updatedInv: Invoice = {
+      ...inv,
+      status: 'READY',
+      remarks: data.remarks || inv.remarks,
+      updated_at: now,
+    };
+
+    memoryDb.invoices[invIdx] = updatedInv;
+    memoryDb.addAudit(inv.tenant_id, 'INVOICE_MARKED_READY', 'invoices', invoiceId, { ready_at: now });
+    memoryDb.notify();
+
+    return this.getInvoiceDetails(invoiceId, tenantId);
+  },
+
+  async cancelInvoice(
+    tenantId: string,
+    invoiceId: string,
+    data: { cancellation_reason: string },
+    _userId = 'usr-acme-admin'
+  ): Promise<Invoice> {
+    const invIdx = memoryDb.invoices.findIndex((i) => i.id === invoiceId && (tenantId === 'all' || i.tenant_id === tenantId));
+    if (invIdx < 0) throw new Error('Invoice not found');
+
+    const inv = memoryDb.invoices[invIdx];
+    if (inv.status === 'CANCELLED') {
+      throw new Error('Invoice is already cancelled');
+    }
+
+    if (!data.cancellation_reason || !data.cancellation_reason.trim()) {
+      throw new Error('Mandatory cancellation reason is required');
+    }
+
+    const now = new Date().toISOString();
+    const updatedInv: Invoice = {
+      ...inv,
+      status: 'CANCELLED',
+      remarks: `CANCELLED: ${data.cancellation_reason}`,
+      updated_at: now,
+    };
+
+    memoryDb.invoices[invIdx] = updatedInv;
+    memoryDb.addAudit(inv.tenant_id, 'INVOICE_CANCELLED', 'invoices', invoiceId, { cancellation_reason: data.cancellation_reason });
+    memoryDb.notify();
+
+    return this.getInvoiceDetails(invoiceId, tenantId);
+  },
+
+  // ==========================================
+  // STEP 14: CLIENT DIGITAL SIGNATURE WORKFLOW
+  // ==========================================
+
+  async createInvoiceSignatureRequest(
+    tenantId: string,
+    invoiceId: string,
+    data: {
+      signer_name: string;
+      signer_role?: string;
+      signer_email?: string;
+      signer_phone?: string;
+      expires_in_days?: number;
+    },
+    userId = 'usr-acme-admin'
+  ): Promise<InvoiceSignatureRequest> {
+    const inv = memoryDb.invoices.find((i) => i.id === invoiceId && (tenantId === 'all' || i.tenant_id === tenantId));
+    if (!inv) throw new Error('Invoice not found');
+
+    if (inv.status === 'DRAFT') {
+      throw new Error('Signature request cannot be created for DRAFT invoice');
+    }
+    if (inv.status === 'CANCELLED') {
+      throw new Error('Signature request cannot be created for CANCELLED invoice');
+    }
+
+    const existingPending = memoryDb.signatureRequests.find(
+      (r) => r.invoice_id === invoiceId && (r.status === 'PENDING' || r.status === 'OPENED')
+    );
+    if (existingPending) {
+      throw new Error(`Active signature request ${existingPending.request_reference} already exists for this invoice`);
+    }
+
+    const reqRef = `SIG-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+    const now = new Date().toISOString();
+    const expiresDays = data.expires_in_days || 7;
+    const expiresAt = new Date(Date.now() + expiresDays * 86400000).toISOString();
+
+    const newReq: InvoiceSignatureRequest = {
+      id: `sig-req-${Date.now()}`,
+      tenant_id: inv.tenant_id,
+      organization_id: inv.organization_id,
+      sub_org_id: inv.sub_org_id,
+      invoice_id: invoiceId,
+      client_id: inv.client_id,
+      request_reference: reqRef,
+      status: 'PENDING',
+      requested_at: now,
+      expires_at: expiresAt,
+      created_by: userId,
+      signer_name: data.signer_name,
+      signer_role: data.signer_role,
+      signer_email: data.signer_email,
+      signer_phone: data.signer_phone,
+      created_at: now,
+      updated_at: now,
+      invoice: inv,
+      client: memoryDb.clients.find((c) => c.id === inv.client_id) || null,
+    };
+
+    memoryDb.signatureRequests.unshift(newReq);
+
+    // Update invoice status to SIGNATURE_REQUIRED if currently READY / ISSUED
+    const invIdx = memoryDb.invoices.findIndex((i) => i.id === invoiceId);
+    if (invIdx >= 0) {
+      memoryDb.invoices[invIdx] = {
+        ...memoryDb.invoices[invIdx],
+        status: 'SIGNATURE_REQUIRED',
+        updated_at: now,
+      };
+    }
+
+    memoryDb.addAudit(inv.tenant_id, 'INVOICE_SIGNATURE_REQUESTED', 'invoice_signature_requests', newReq.id, {
+      request_reference: reqRef,
+      invoice_id: invoiceId,
+      client_id: inv.client_id,
+      signer_name: data.signer_name,
+    });
+    memoryDb.notify();
+
+    return newReq;
+  },
+
+  async getSignatureRequestByRef(requestReference: string): Promise<InvoiceSignatureRequest> {
+    const req = memoryDb.signatureRequests.find((r) => r.request_reference === requestReference);
+    if (!req) throw new Error('Signature request not found or invalid link');
+
+    // Check expiry
+    if (req.status === 'PENDING' || req.status === 'OPENED') {
+      const now = new Date();
+      if (new Date(req.expires_at) < now) {
+        req.status = 'EXPIRED';
+        req.updated_at = now.toISOString();
+        memoryDb.addAudit(req.tenant_id, 'INVOICE_SIGNATURE_EXPIRED', 'invoice_signature_requests', req.id, {
+          request_reference: requestReference,
+        });
+        memoryDb.notify();
+      }
+    }
+
+    const inv = memoryDb.invoices.find((i) => i.id === req.invoice_id);
+    const client = memoryDb.clients.find((c) => c.id === req.client_id);
+    let items: InvoiceItem[] = [];
+    if (inv) {
+      items = memoryDb.invoiceItems.filter((item) => item.invoice_id === inv.id);
+    }
+
+    return {
+      ...req,
+      invoice: inv ? { ...inv, items } : null,
+      client,
+    };
+  },
+
+  async openSignatureRequest(requestReference: string): Promise<InvoiceSignatureRequest> {
+    const reqIdx = memoryDb.signatureRequests.findIndex((r) => r.request_reference === requestReference);
+    if (reqIdx < 0) throw new Error('Signature request not found');
+
+    const req = memoryDb.signatureRequests[reqIdx];
+    if (req.status === 'PENDING') {
+      const now = new Date().toISOString();
+      const updated = { ...req, status: 'OPENED' as const, updated_at: now };
+      memoryDb.signatureRequests[reqIdx] = updated;
+      memoryDb.addAudit(req.tenant_id, 'INVOICE_SIGNATURE_OPENED', 'invoice_signature_requests', req.id, {
+        request_reference: requestReference,
+      });
+      memoryDb.notify();
+      return updated;
+    }
+    return req;
+  },
+
+  async signInvoice(
+    requestReference: string,
+    data: {
+      signer_name: string;
+      signer_role?: string;
+      signer_email?: string;
+      signer_phone?: string;
+      signature_data: string;
+    }
+  ): Promise<{ signature: Signature; request: InvoiceSignatureRequest; signed_invoice_doc_id: string }> {
+    const reqIdx = memoryDb.signatureRequests.findIndex((r) => r.request_reference === requestReference);
+    if (reqIdx < 0) throw new Error('Signature request not found');
+
+    const req = memoryDb.signatureRequests[reqIdx];
+
+    if (req.status === 'SIGNED') {
+      throw new Error('Invoice signature request has already been signed');
+    }
+    if (req.status === 'EXPIRED') {
+      throw new Error('Invoice signature request has expired');
+    }
+    if (req.status === 'CANCELLED' || req.status === 'REJECTED') {
+      throw new Error(`Signature request is in ${req.status} status and cannot be signed`);
+    }
+
+    if (new Date(req.expires_at) < new Date()) {
+      req.status = 'EXPIRED';
+      memoryDb.notify();
+      throw new Error('Invoice signature request has expired');
+    }
+
+    if (!data.signer_name || !data.signer_name.trim()) {
+      throw new Error('Signer name is required');
+    }
+    if (!data.signature_data || data.signature_data.length < 10) {
+      throw new Error('Valid signature drawing canvas data is required');
+    }
+
+    const now = new Date().toISOString();
+    const sigRef = `SIG-DOC-${Date.now()}`;
+    const r2Key = `signatures/invoices/${requestReference}/signature_${Date.now()}.png`;
+    const docId = `doc-signed-inv-${Date.now()}`;
+
+    // Create Signature record (type = INVOICE)
+    const newSignature: Signature = {
+      id: `sig-${Date.now()}`,
+      tenant_id: req.tenant_id,
+      organization_id: req.organization_id,
+      sub_org_id: req.sub_org_id,
+      invoice_id: req.invoice_id,
+      client_id: req.client_id,
+      signature_type: 'INVOICE',
+      signature_status: 'SIGNED',
+      signer_name: data.signer_name,
+      signer_role: data.signer_role || req.signer_role,
+      signer_email: data.signer_email || req.signer_email,
+      signer_phone: data.signer_phone || req.signer_phone,
+      signature_reference: sigRef,
+      signed_at: now,
+      signature_storage_reference: r2Key,
+      document_id: docId,
+      ip_address: '127.0.0.1 (Logged)',
+      user_agent: 'ClientBrowser/DigitalPad',
+      created_at: now,
+      updated_at: now,
+    };
+
+    memoryDb.signatures.unshift(newSignature);
+
+    // Update Signature Request status
+    const updatedReq: InvoiceSignatureRequest = {
+      ...req,
+      status: 'SIGNED',
+      signer_name: data.signer_name,
+      signer_role: data.signer_role || req.signer_role,
+      signer_email: data.signer_email || req.signer_email,
+      signer_phone: data.signer_phone || req.signer_phone,
+      updated_at: now,
+    };
+    memoryDb.signatureRequests[reqIdx] = updatedReq;
+
+    // Update Invoice status to SIGNED
+    const invIdx = memoryDb.invoices.findIndex((i) => i.id === req.invoice_id);
+    if (invIdx >= 0) {
+      memoryDb.invoices[invIdx] = {
+        ...memoryDb.invoices[invIdx],
+        status: 'SIGNED',
+        signature: newSignature,
+        updated_at: now,
+      };
+    }
+
+    // Add document record for signed invoice PDF version (SIGNED_INVOICE)
+    const newDoc: DocumentItem = {
+      id: docId,
+      tenant_id: req.tenant_id,
+      request_id: req.invoice_id,
+      document_type: 'OTHER',
+      file_name: `Signed_Invoice_${req.request_reference}.pdf`,
+      storage_reference: `documents/signed_invoices/${req.invoice_id}/signed_invoice_${req.request_reference}.pdf`,
+      mime_type: 'application/pdf',
+      file_size: 145000,
+      mandatory: false,
+      uploaded_by: 'system',
+      uploaded_at: now,
+      version: 1,
+      created_at: now,
+      updated_at: now,
+    };
+    memoryDb.documents.unshift(newDoc);
+
+    memoryDb.addAudit(req.tenant_id, 'INVOICE_SIGNATURE_SIGNED', 'signatures', newSignature.id, {
+      request_reference: requestReference,
+      signature_reference: sigRef,
+      signer_name: data.signer_name,
+      signed_at: now,
+    });
+    memoryDb.addAudit(req.tenant_id, 'SIGNED_INVOICE_GENERATED', 'documents', docId, {
+      invoice_id: req.invoice_id,
+      request_reference: requestReference,
+    });
+    memoryDb.notify();
+
+    return { signature: newSignature, request: updatedReq, signed_invoice_doc_id: docId };
+  },
+
+  async rejectSignatureRequest(
+    requestReference: string,
+    data: {
+      signer_name: string;
+      signer_role?: string;
+      rejection_reason: string;
+    }
+  ): Promise<InvoiceSignatureRequest> {
+    const reqIdx = memoryDb.signatureRequests.findIndex((r) => r.request_reference === requestReference);
+    if (reqIdx < 0) throw new Error('Signature request not found');
+
+    const req = memoryDb.signatureRequests[reqIdx];
+    if (req.status === 'SIGNED') {
+      throw new Error('Signed requests cannot be rejected');
+    }
+
+    if (!data.rejection_reason || !data.rejection_reason.trim()) {
+      throw new Error('Rejection reason is required');
+    }
+
+    const now = new Date().toISOString();
+    const updatedReq: InvoiceSignatureRequest = {
+      ...req,
+      status: 'REJECTED',
+      signer_name: data.signer_name || req.signer_name,
+      signer_role: data.signer_role || req.signer_role,
+      rejection_reason: data.rejection_reason,
+      rejected_at: now,
+      updated_at: now,
+    };
+    memoryDb.signatureRequests[reqIdx] = updatedReq;
+
+    // Update invoice status back to READY
+    const invIdx = memoryDb.invoices.findIndex((i) => i.id === req.invoice_id);
+    if (invIdx >= 0) {
+      memoryDb.invoices[invIdx] = {
+        ...memoryDb.invoices[invIdx],
+        status: 'READY',
+        remarks: `SIGNATURE REJECTED by ${data.signer_name}: ${data.rejection_reason}`,
+        updated_at: now,
+      };
+    }
+
+    memoryDb.addAudit(req.tenant_id, 'INVOICE_SIGNATURE_REJECTED', 'invoice_signature_requests', req.id, {
+      request_reference: requestReference,
+      signer_name: data.signer_name,
+      rejection_reason: data.rejection_reason,
+    });
+    memoryDb.notify();
+
+    return updatedReq;
+  },
+
+  async retrySignatureRequest(
+    tenantId: string,
+    invoiceId: string,
+    data: {
+      signer_name: string;
+      signer_role?: string;
+      signer_email?: string;
+      signer_phone?: string;
+      expires_in_days?: number;
+    },
+    userId = 'usr-acme-admin'
+  ): Promise<InvoiceSignatureRequest> {
+    const inv = memoryDb.invoices.find((i) => i.id === invoiceId && (tenantId === 'all' || i.tenant_id === tenantId));
+    if (!inv) throw new Error('Invoice not found');
+
+    // Create a new request reference (do not overwrite old request)
+    const newReq = await this.createInvoiceSignatureRequest(tenantId, invoiceId, data, userId);
+
+    memoryDb.addAudit(inv.tenant_id, 'INVOICE_SIGNATURE_RETRY_CREATED', 'invoice_signature_requests', newReq.id, {
+      invoice_id: invoiceId,
+      new_request_reference: newReq.request_reference,
+    });
+    memoryDb.notify();
+
+    return newReq;
+  },
+
+  async getInvoiceSignature(
+    invoiceId: string,
+    tenantId: string
+  ): Promise<{ signature: Signature | null; requests: InvoiceSignatureRequest[] }> {
+    const signature = memoryDb.signatures.find(
+      (s) => s.invoice_id === invoiceId && s.signature_type === 'INVOICE' && (tenantId === 'all' || s.tenant_id === tenantId)
+    ) || null;
+
+    const requests = memoryDb.signatureRequests.filter(
+      (r) => r.invoice_id === invoiceId && (tenantId === 'all' || r.tenant_id === tenantId)
+    );
+
+    return { signature, requests };
+  },
+
+  async generateSignedInvoiceDocument(
+    tenantId: string,
+    invoiceId: string
+  ): Promise<{ document_id: string; document_name: string; file_path: string }> {
+    const inv = memoryDb.invoices.find((i) => i.id === invoiceId && (tenantId === 'all' || i.tenant_id === tenantId));
+    if (!inv) throw new Error('Invoice not found');
+
+    const signature = memoryDb.signatures.find((s) => s.invoice_id === invoiceId && s.signature_type === 'INVOICE');
+    if (!signature) throw new Error('Cannot generate signed document: Invoice is not digitally signed yet');
+
+    const docId = `doc-signed-${Date.now()}`;
+    const docName = `Signed_Tax_Invoice_${inv.invoice_number}.pdf`;
+    const path = `documents/signed_invoices/${invoiceId}/${docName}`;
+
+    memoryDb.addAudit(inv.tenant_id, 'SIGNED_INVOICE_GENERATED', 'documents', docId, {
+      invoice_id: invoiceId,
+      signature_reference: signature.signature_reference,
+    });
+    memoryDb.notify();
+
+    return { document_id: docId, document_name: docName, file_path: path };
+  },
+
+  // ==========================================
+  // STEP 15: DISPATCH, TRACKING & CLIENT DELIVERY
+  // ==========================================
+
+  async getDispatches(
+    tenantId: string,
+    filters?: { status?: string; dispatch_type?: string; search?: string }
+  ): Promise<Dispatch[]> {
+    let list = memoryDb.dispatches.filter((d) => tenantId === 'all' || d.tenant_id === tenantId);
+
+    if (filters?.status && filters.status !== 'all') {
+      list = list.filter((d) => d.status === filters.status);
+    }
+    if (filters?.dispatch_type && filters.dispatch_type !== 'all') {
+      list = list.filter((d) => d.dispatch_type === filters.dispatch_type);
+    }
+    if (filters?.search && filters.search.trim()) {
+      const q = filters.search.toLowerCase().trim();
+      list = list.filter(
+        (d) =>
+          d.dispatch_number.toLowerCase().includes(q) ||
+          d.carrier_name?.toLowerCase().includes(q) ||
+          d.tracking_number?.toLowerCase().includes(q) ||
+          d.shipping_address.toLowerCase().includes(q)
+      );
+    }
+
+    return list.map((d) => {
+      const client = memoryDb.clients.find((c) => c.id === d.client_id) || null;
+      const req = memoryDb.calibrationRequests.find((r) => r.id === d.request_id) || null;
+      const inv = d.invoice_id ? memoryDb.invoices.find((i) => i.id === d.invoice_id) || null : null;
+      const items = memoryDb.dispatchItems
+        .filter((di) => di.dispatch_id === d.id)
+        .map((di) => ({
+          ...di,
+          item: memoryDb.items.find((i) => i.id === di.item_id) || null,
+          request_item: memoryDb.requestItems.find((ri) => ri.id === di.request_item_id) || null,
+        }));
+      const deliv = memoryDb.deliveries.find((del) => del.dispatch_id === d.id) || null;
+
+      return {
+        ...d,
+        client,
+        request: req,
+        invoice: inv,
+        items,
+        delivery: deliv,
+      };
+    });
+  },
+
+  async getEligibleItemsForDispatch(
+    tenantId: string,
+    clientId?: string,
+    requestId?: string
+  ): Promise<{ eligible_items: any[] }> {
+    // Eligible items must belong to signed invoices (or ready invoices) with completed calibration
+    const eligible: any[] = [];
+
+    const tenantInvoices = memoryDb.invoices.filter(
+      (i) => (tenantId === 'all' || i.tenant_id === tenantId) && i.status !== 'DRAFT' && i.status !== 'CANCELLED'
+    );
+
+    for (const inv of tenantInvoices) {
+      if (clientId && inv.client_id !== clientId) continue;
+      if (requestId && inv.request_id !== requestId) continue;
+
+      const invItems = memoryDb.invoiceItems.filter((ii) => ii.invoice_id === inv.id);
+      const req = memoryDb.calibrationRequests.find((r) => r.id === inv.request_id);
+      const client = memoryDb.clients.find((c) => c.id === inv.client_id);
+      const invoiceSig = memoryDb.signatures.find((s) => s.invoice_id === inv.id && s.signature_type === 'INVOICE');
+
+      for (const itemRow of invItems) {
+        const isDispatched = memoryDb.dispatchItems.some((di) => di.request_item_id === itemRow.request_item_id);
+
+        if (!isDispatched) {
+          const masterItem = memoryDb.items.find((m) => m.id === itemRow.item_id);
+
+          eligible.push({
+            request_item_id: itemRow.request_item_id,
+            item_id: itemRow.item_id,
+            item_code: masterItem?.item_code || 'ITM-UNKNOWN',
+            item_name: masterItem?.item_name || itemRow.description,
+            serial_number: masterItem?.serial_number || 'N/A',
+            request_id: inv.request_id,
+            request_number: req?.request_number || 'N/A',
+            client_id: inv.client_id,
+            client_name: client?.client_name || 'Client',
+            invoice_id: inv.id,
+            invoice_number: inv.invoice_number,
+            invoice_item_id: itemRow.id,
+            invoice_status: inv.status,
+            invoice_signature_status: invoiceSig ? 'SIGNED' : 'PENDING',
+            quantity: itemRow.quantity,
+          });
+        }
+      }
+    }
+
+    return { eligible_items: eligible };
+  },
+
+  async getDispatchDetails(dispatchId: string, tenantId: string): Promise<Dispatch> {
+    const dsp = memoryDb.dispatches.find((d) => d.id === dispatchId && (tenantId === 'all' || d.tenant_id === tenantId));
+    if (!dsp) throw new Error('Dispatch record not found');
+
+    const client = memoryDb.clients.find((c) => c.id === dsp.client_id) || null;
+    const req = memoryDb.calibrationRequests.find((r) => r.id === dsp.request_id) || null;
+    const inv = dsp.invoice_id ? memoryDb.invoices.find((i) => i.id === dsp.invoice_id) || null : null;
+    const items = memoryDb.dispatchItems
+      .filter((di) => di.dispatch_id === dsp.id)
+      .map((di) => ({
+        ...di,
+        item: memoryDb.items.find((i) => i.id === di.item_id) || null,
+        request_item: memoryDb.requestItems.find((ri) => ri.id === di.request_item_id) || null,
+        invoice_item: memoryDb.invoiceItems.find((ii) => ii.id === di.invoice_item_id) || null,
+      }));
+
+    const deliv = memoryDb.deliveries.find((del) => del.dispatch_id === dsp.id) || null;
+    let delivWithSig = deliv;
+    if (deliv) {
+      const delivSig = memoryDb.signatures.find((s) => s.invoice_id === dsp.id && s.signature_type === 'DELIVERY') || null;
+      delivWithSig = { ...deliv, signature: delivSig };
+    }
+
+    return {
+      ...dsp,
+      client,
+      request: req,
+      invoice: inv,
+      items,
+      delivery: delivWithSig,
+    };
+  },
+
+  async createDispatch(
+    tenantId: string,
+    data: {
+      request_id: string;
+      invoice_id?: string;
+      client_id: string;
+      dispatch_type: 'STANDARD' | 'PARTIAL' | 'URGENT';
+      dispatch_date: string;
+      expected_delivery_date?: string;
+      shipping_address: string;
+      billing_address?: string;
+      urgent_reason?: string;
+      remarks?: string;
+      selected_item_ids: string[];
+    },
+    userId = 'usr-acme-admin'
+  ): Promise<Dispatch> {
+    if (!data.selected_item_ids || data.selected_item_ids.length === 0) {
+      throw new Error('At least one item must be selected for dispatch');
+    }
+
+    if (data.dispatch_type === 'URGENT' && (!data.urgent_reason || !data.urgent_reason.trim())) {
+      throw new Error('Mandatory urgent reason is required for URGENT dispatches');
+    }
+
+    // Duplicate item dispatch check
+    for (const reqItemId of data.selected_item_ids) {
+      const alreadyDispatched = memoryDb.dispatchItems.some((di) => di.request_item_id === reqItemId);
+      if (alreadyDispatched) {
+        throw new Error(`Item ${reqItemId} has already been added to another dispatch`);
+      }
+    }
+
+    const dspNumber = `DSP-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+    const now = new Date().toISOString();
+    const dspId = `dsp-${Date.now()}`;
+
+    const newDsp: Dispatch = {
+      id: dspId,
+      tenant_id: tenantId,
+      organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
+      dispatch_number: dspNumber,
+      request_id: data.request_id,
+      invoice_id: data.invoice_id,
+      client_id: data.client_id,
+      dispatch_type: data.dispatch_type,
+      status: 'READY_FOR_DISPATCH',
+      dispatch_date: data.dispatch_date,
+      expected_delivery_date: data.expected_delivery_date,
+      shipping_address: data.shipping_address,
+      billing_address: data.billing_address,
+      urgent_reason: data.urgent_reason,
+      remarks: data.remarks,
+      created_by: userId,
+      created_at: now,
+      updated_at: now,
+    };
+
+    memoryDb.dispatches.unshift(newDsp);
+
+    // Create Dispatch Items
+    data.selected_item_ids.forEach((reqItemId) => {
+      const invItem = memoryDb.invoiceItems.find((ii) => ii.request_item_id === reqItemId);
+      const newDspItem: DispatchItem = {
+        id: `dsp-item-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        tenant_id: tenantId,
+        dispatch_id: dspId,
+        request_item_id: reqItemId,
+        item_id: invItem?.item_id || '77777777-1111-4777-a111-111111111111',
+        invoice_id: data.invoice_id || invItem?.invoice_id,
+        invoice_item_id: invItem?.id,
+        quantity: invItem?.quantity || 1,
+        package_reference: undefined,
+        created_at: now,
+        updated_at: now,
+      };
+      memoryDb.dispatchItems.unshift(newDspItem);
+    });
+
+    memoryDb.addAudit(tenantId, 'DISPATCH_CREATED', 'dispatches', dspId, {
+      dispatch_number: dspNumber,
+      dispatch_type: data.dispatch_type,
+      item_count: data.selected_item_ids.length,
+    });
+    memoryDb.notify();
+
+    return this.getDispatchDetails(dspId, tenantId);
+  },
+
+  async startPacking(
+    tenantId: string,
+    dispatchId: string,
+    data: { remarks?: string }
+  ): Promise<Dispatch> {
+    const dspIdx = memoryDb.dispatches.findIndex((d) => d.id === dispatchId && (tenantId === 'all' || d.tenant_id === tenantId));
+    if (dspIdx < 0) throw new Error('Dispatch record not found');
+
+    const dsp = memoryDb.dispatches[dspIdx];
+    const now = new Date().toISOString();
+
+    memoryDb.dispatches[dspIdx] = {
+      ...dsp,
+      status: 'PACKING',
+      remarks: data.remarks ? `${dsp.remarks || ''}\n${data.remarks}`.trim() : dsp.remarks,
+      updated_at: now,
+    };
+
+    memoryDb.addAudit(dsp.tenant_id, 'DISPATCH_PACKING_STARTED', 'dispatches', dispatchId, { status: 'PACKING' });
+    memoryDb.notify();
+
+    return this.getDispatchDetails(dispatchId, tenantId);
+  },
+
+  async markPacked(
+    tenantId: string,
+    dispatchId: string,
+    data: { package_reference: string; number_of_packages?: number; packing_remarks?: string }
+  ): Promise<Dispatch> {
+    const dspIdx = memoryDb.dispatches.findIndex((d) => d.id === dispatchId && (tenantId === 'all' || d.tenant_id === tenantId));
+    if (dspIdx < 0) throw new Error('Dispatch record not found');
+
+    if (!data.package_reference || !data.package_reference.trim()) {
+      throw new Error('Package reference is required');
+    }
+
+    const dsp = memoryDb.dispatches[dspIdx];
+    const now = new Date().toISOString();
+
+    memoryDb.dispatches[dspIdx] = {
+      ...dsp,
+      status: 'PACKED',
+      remarks: `PACKED (${data.package_reference}): ${data.packing_remarks || 'Equipment packed'}`,
+      updated_at: now,
+    };
+
+    // Update package reference on dispatch items
+    memoryDb.dispatchItems.forEach((di, idx) => {
+      if (di.dispatch_id === dispatchId) {
+        memoryDb.dispatchItems[idx].package_reference = data.package_reference;
+      }
+    });
+
+    memoryDb.addAudit(dsp.tenant_id, 'DISPATCH_MARKED_PACKED', 'dispatches', dispatchId, {
+      package_reference: data.package_reference,
+    });
+    memoryDb.notify();
+
+    return this.getDispatchDetails(dispatchId, tenantId);
+  },
+
+  async shipDispatch(
+    tenantId: string,
+    dispatchId: string,
+    data: {
+      carrier_name: string;
+      tracking_number: string;
+      dispatch_date: string;
+      expected_delivery_date?: string;
+      remarks?: string;
+    },
+    userId = 'usr-acme-admin'
+  ): Promise<Dispatch> {
+    const dspIdx = memoryDb.dispatches.findIndex((d) => d.id === dispatchId && (tenantId === 'all' || d.tenant_id === tenantId));
+    if (dspIdx < 0) throw new Error('Dispatch record not found');
+
+    const dsp = memoryDb.dispatches[dspIdx];
+
+    if (!data.carrier_name || !data.carrier_name.trim()) {
+      throw new Error('Carrier name is required');
+    }
+    if (!data.tracking_number || !data.tracking_number.trim()) {
+      throw new Error('Tracking number is required');
+    }
+
+    const now = new Date().toISOString();
+
+    memoryDb.dispatches[dspIdx] = {
+      ...dsp,
+      status: 'DISPATCHED',
+      carrier_name: data.carrier_name.trim(),
+      tracking_number: data.tracking_number.trim(),
+      dispatch_date: data.dispatch_date,
+      expected_delivery_date: data.expected_delivery_date || dsp.expected_delivery_date,
+      dispatched_by: userId,
+      dispatched_at: now,
+      updated_at: now,
+    };
+
+    // Update calibration request status to DISPATCHED / PARTIALLY_COMPLETED
+    const reqIdx = memoryDb.calibrationRequests.findIndex((r) => r.id === dsp.request_id);
+    if (reqIdx >= 0) {
+      memoryDb.calibrationRequests[reqIdx] = {
+        ...memoryDb.calibrationRequests[reqIdx],
+        status: 'DISPATCHED',
+        updated_at: now,
+      };
+    }
+
+    memoryDb.addAudit(dsp.tenant_id, 'DISPATCH_SHIPPED', 'dispatches', dispatchId, {
+      carrier: data.carrier_name,
+      tracking_number: data.tracking_number,
+    });
+    memoryDb.notify();
+
+    return this.getDispatchDetails(dispatchId, tenantId);
+  },
+
+  async updateDispatchTracking(
+    tenantId: string,
+    dispatchId: string,
+    data: { status: 'IN_TRANSIT' | 'OUT_FOR_DELIVERY' | 'DELIVERED'; carrier_notes?: string }
+  ): Promise<Dispatch> {
+    const dspIdx = memoryDb.dispatches.findIndex((d) => d.id === dispatchId && (tenantId === 'all' || d.tenant_id === tenantId));
+    if (dspIdx < 0) throw new Error('Dispatch record not found');
+
+    const dsp = memoryDb.dispatches[dspIdx];
+    const now = new Date().toISOString();
+
+    memoryDb.dispatches[dspIdx] = {
+      ...dsp,
+      status: data.status,
+      remarks: data.carrier_notes ? `${dsp.remarks || ''}\n${data.carrier_notes}`.trim() : dsp.remarks,
+      updated_at: now,
+    };
+
+    memoryDb.addAudit(dsp.tenant_id, 'DISPATCH_TRACKING_UPDATED', 'dispatches', dispatchId, {
+      new_status: data.status,
+    });
+    memoryDb.notify();
+
+    return this.getDispatchDetails(dispatchId, tenantId);
+  },
+
+  async confirmDelivery(
+    tenantId: string,
+    dispatchId: string,
+    data: {
+      recipient_name: string;
+      recipient_role?: string;
+      recipient_email?: string;
+      recipient_phone?: string;
+      delivery_date: string;
+      delivery_signature_data: string;
+      remarks?: string;
+    }
+  ): Promise<{ dispatch: Dispatch; delivery: Delivery; signature: Signature }> {
+    const dspIdx = memoryDb.dispatches.findIndex((d) => d.id === dispatchId && (tenantId === 'all' || d.tenant_id === tenantId));
+    if (dspIdx < 0) throw new Error('Dispatch record not found');
+
+    const dsp = memoryDb.dispatches[dspIdx];
+
+    if (!data.recipient_name || !data.recipient_name.trim()) {
+      throw new Error('Recipient name is required');
+    }
+    if (!data.delivery_signature_data || data.delivery_signature_data.length < 10) {
+      throw new Error('Valid delivery signature drawing is required');
+    }
+
+    const now = new Date().toISOString();
+    const delivSigRef = `DELIV-SIG-${Date.now()}`;
+    const r2Key = `signatures/deliveries/${dispatchId}/delivery_signature_${Date.now()}.png`;
+    const delivDocId = `doc-deliv-note-${Date.now()}`;
+
+    // Create Delivery Signature (signature_type = 'DELIVERY')
+    const newDelivSig: Signature = {
+      id: `sig-deliv-${Date.now()}`,
+      tenant_id: dsp.tenant_id,
+      organization_id: dsp.organization_id,
+      sub_org_id: dsp.sub_org_id,
+      invoice_id: dsp.id, // linked to dispatch_id
+      client_id: dsp.client_id,
+      signature_type: 'DELIVERY',
+      signature_status: 'SIGNED',
+      signer_name: data.recipient_name.trim(),
+      signer_role: data.recipient_role,
+      signer_email: data.recipient_email,
+      signer_phone: data.recipient_phone,
+      signature_reference: delivSigRef,
+      signed_at: now,
+      signature_storage_reference: r2Key,
+      document_id: delivDocId,
+      ip_address: '127.0.0.1 (Delivery Tablet)',
+      user_agent: 'DeliveryApp/HandheldPad',
+      created_at: now,
+      updated_at: now,
+    };
+    memoryDb.signatures.unshift(newDelivSig);
+
+    // Create Delivery Record
+    const newDelivery: Delivery = {
+      id: `deliv-${Date.now()}`,
+      tenant_id: dsp.tenant_id,
+      dispatch_id: dispatchId,
+      client_id: dsp.client_id,
+      recipient_name: data.recipient_name.trim(),
+      recipient_role: data.recipient_role,
+      recipient_email: data.recipient_email,
+      recipient_phone: data.recipient_phone,
+      delivery_date: data.delivery_date || now,
+      delivery_status: 'DELIVERED',
+      proof_of_delivery_storage_ref: r2Key,
+      remarks: data.remarks,
+      created_at: now,
+      updated_at: now,
+      signature: newDelivSig,
+    };
+    memoryDb.deliveries.unshift(newDelivery);
+
+    // Update Dispatch status to DELIVERED
+    memoryDb.dispatches[dspIdx] = {
+      ...dsp,
+      status: 'DELIVERED',
+      delivered_at: data.delivery_date || now,
+      updated_at: now,
+    };
+
+    // Calculate Parent Request Completion Status
+    const reqId = dsp.request_id;
+    const reqItems = memoryDb.requestItems.filter((ri) => ri.request_id === reqId);
+
+    // Count how many request items are now delivered across all dispatches
+    let allDeliveredCount = 0;
+    reqItems.forEach((ri) => {
+      const isDelivered = memoryDb.dispatchItems.some((di) => {
+        if (di.request_item_id !== ri.id) return false;
+        const parentDsp = memoryDb.dispatches.find((d) => d.id === di.dispatch_id);
+        return parentDsp?.status === 'DELIVERED';
+      });
+      if (isDelivered) allDeliveredCount++;
+    });
+
+    const isFullyCompleted = allDeliveredCount >= reqItems.length;
+    const targetStatus = isFullyCompleted ? 'COMPLETED' : 'PARTIALLY_COMPLETED';
+
+    const reqIdx = memoryDb.calibrationRequests.findIndex((r) => r.id === reqId);
+    if (reqIdx >= 0) {
+      memoryDb.calibrationRequests[reqIdx] = {
+        ...memoryDb.calibrationRequests[reqIdx],
+        status: targetStatus,
+        updated_at: now,
+      };
+    }
+
+    memoryDb.addAudit(dsp.tenant_id, 'DELIVERY_CONFIRMED', 'deliveries', newDelivery.id, {
+      dispatch_number: dsp.dispatch_number,
+      recipient_name: data.recipient_name,
+      signature_reference: delivSigRef,
+      request_status_result: targetStatus,
+    });
+    memoryDb.notify();
+
+    const updatedDsp = await this.getDispatchDetails(dispatchId, tenantId);
+    return { dispatch: updatedDsp, delivery: newDelivery, signature: newDelivSig };
+  },
+
+  async generateDeliveryDocument(
+    tenantId: string,
+    dispatchId: string
+  ): Promise<{ document_id: string; document_name: string; file_path: string }> {
+    const dsp = memoryDb.dispatches.find((d) => d.id === dispatchId && (tenantId === 'all' || d.tenant_id === tenantId));
+    if (!dsp) throw new Error('Dispatch record not found');
+
+    const docId = `doc-deliv-note-${Date.now()}`;
+    const docName = `Delivery_Note_${dsp.dispatch_number}.pdf`;
+    const path = `documents/delivery_notes/${dispatchId}/${docName}`;
+
+    memoryDb.addAudit(dsp.tenant_id, 'DELIVERY_NOTE_GENERATED', 'documents', docId, {
+      dispatch_number: dsp.dispatch_number,
+    });
+    memoryDb.notify();
+
+    return { document_id: docId, document_name: docName, file_path: path };
+  },
+
 };
+
+export const api = apiClient;
+export default apiClient;
+
+
+

@@ -520,7 +520,7 @@ export const CreateCalibrationRequestModal: React.FC<CreateCalibrationRequestMod
                       </div>
 
                       <div className="text-right text-xs">
-                        <span className="font-semibold text-slate-700">${Number(item.standard_cost || 0).toFixed(2)}</span>
+                        <span className="font-semibold text-slate-700">₹{Number(item.standard_cost || 0).toFixed(2)}</span>
                         <span className="block text-[10px] text-slate-400">Freq: {item.calibration_frequency} {item.calibration_frequency_unit}</span>
                       </div>
                     </div>

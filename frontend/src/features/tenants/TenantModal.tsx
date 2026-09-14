@@ -27,8 +27,8 @@ export const TenantModal: React.FC<TenantModalProps> = ({
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [status, setStatus] = useState<TenantStatus>('active');
-  const [timezone, setTimezone] = useState('UTC');
-  const [currency, setCurrency] = useState('USD');
+  const [timezone, setTimezone] = useState('Asia/Kolkata');
+  const [currency, setCurrency] = useState('INR');
   const [complianceStandard, setComplianceStandard] = useState('ISO/IEC 17025');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,15 +38,15 @@ export const TenantModal: React.FC<TenantModalProps> = ({
       setName(initialData.name);
       setCode(initialData.code);
       setStatus(initialData.status);
-      setTimezone(initialData.settings?.timezone || 'UTC');
-      setCurrency(initialData.settings?.currency || 'USD');
+      setTimezone(initialData.settings?.timezone || 'Asia/Kolkata');
+      setCurrency(initialData.settings?.currency || 'INR');
       setComplianceStandard(initialData.settings?.complianceStandard || 'ISO/IEC 17025');
     } else {
       setName('');
       setCode('');
       setStatus('active');
-      setTimezone('UTC');
-      setCurrency('USD');
+      setTimezone('Asia/Kolkata');
+      setCurrency('INR');
       setComplianceStandard('ISO/IEC 17025');
     }
     setErrors({});

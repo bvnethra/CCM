@@ -17,6 +17,25 @@ import { LabQueuePage } from './features/lab/LabQueuePage';
 import { LabRequestIntakePage } from './features/lab/LabRequestIntakePage';
 import { VerificationQueuePage } from './features/verification/VerificationQueuePage';
 import { RequestVerificationPage } from './features/verification/RequestVerificationPage';
+import { CalibrationQueuePage } from './features/calibration/CalibrationQueuePage';
+import { CalibrationWorkspacePage } from './features/calibration/CalibrationWorkspacePage';
+import { CalibrationDueListPage } from './features/calibration/CalibrationDueListPage';
+import { ServiceRequestListPage } from './features/service/ServiceRequestListPage';
+import { ServiceRequestDetailsPage } from './features/service/ServiceRequestDetailsPage';
+import { VendorOutsourceListPage } from './features/outsource/VendorOutsourceListPage';
+import { VendorOutsourceDetailsPage } from './features/outsource/VendorOutsourceDetailsPage';
+import { VendorPOListPage } from './features/outsource/VendorPOListPage';
+import { VendorPODetailsPage } from './features/outsource/VendorPODetailsPage';
+import { QuotationListPage } from './features/quotations/QuotationListPage';
+import { CreateQuotationPage } from './features/quotations/CreateQuotationPage';
+import { QuotationDetailsPage } from './features/quotations/QuotationDetailsPage';
+import { InvoiceListPage } from './features/invoices/InvoiceListPage';
+import { CreateInvoicePage } from './features/invoices/CreateInvoicePage';
+import { InvoiceDetailsPage } from './features/invoices/InvoiceDetailsPage';
+import { ClientInvoiceSignPage } from './features/invoices/ClientInvoiceSignPage';
+import { DispatchListPage } from './features/dispatch/DispatchListPage';
+import { CreateDispatchPage } from './features/dispatch/CreateDispatchPage';
+import { DispatchDetailsPage } from './features/dispatch/DispatchDetailsPage';
 import { AuditLogViewer } from './features/audit/AuditLogViewer';
 
 const AppContent: React.FC = () => {
@@ -24,6 +43,20 @@ const AppContent: React.FC = () => {
   const [currentView, setCurrentView] = useState<string>('dashboard');
   const [selectedLabRequestId, setSelectedLabRequestId] = useState<string | null>(null);
   const [selectedVerificationRequestId, setSelectedVerificationRequestId] = useState<string | null>(null);
+  const [selectedCalibrationRequestItemId, setSelectedCalibrationRequestItemId] = useState<string | null>(null);
+  const [selectedServiceRequestId, setSelectedServiceRequestId] = useState<string | null>(null);
+  const [selectedOutsourceId, setSelectedOutsourceId] = useState<string | null>(null);
+  const [selectedPOId, setSelectedPOId] = useState<string | null>(null);
+  const [selectedQuotationId, setSelectedQuotationId] = useState<string | null>(null);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [selectedDispatchId, setSelectedDispatchId] = useState<string | null>(null);
+
+  // Check for public client signing URL route /client-sign/invoice/:requestReference
+  const path = typeof window !== 'undefined' ? window.location.pathname : '';
+  if (path.startsWith('/client-sign/invoice/')) {
+    const ref = path.replace('/client-sign/invoice/', '').trim();
+    return <ClientInvoiceSignPage requestReference={ref} />;
+  }
 
   if (!isAuthenticated) {
     return <LoginPage onLoginSuccess={() => setCurrentView('dashboard')} />;
@@ -40,6 +73,27 @@ const AppContent: React.FC = () => {
           }
           if (view !== 'lab-verification-detail') {
             setSelectedVerificationRequestId(null);
+          }
+          if (view !== 'lab-calibration-detail') {
+            setSelectedCalibrationRequestItemId(null);
+          }
+          if (view !== 'service-request-detail') {
+            setSelectedServiceRequestId(null);
+          }
+          if (view !== 'vendor-outsource-detail') {
+            setSelectedOutsourceId(null);
+          }
+          if (view !== 'vendor-po-detail') {
+            setSelectedPOId(null);
+          }
+          if (view !== 'quotation-detail') {
+            setSelectedQuotationId(null);
+          }
+          if (view !== 'invoice-detail') {
+            setSelectedInvoiceId(null);
+          }
+          if (view !== 'dispatch-detail') {
+            setSelectedDispatchId(null);
           }
         }}
         onNavigateToLogin={() => setCurrentView('login')}
@@ -81,6 +135,144 @@ const AppContent: React.FC = () => {
           <RequestVerificationPage
             requestId={selectedVerificationRequestId || ''}
             onBack={() => setCurrentView('lab-verification')}
+          />
+        )}
+        {currentView === 'lab-calibration' && (
+          <CalibrationQueuePage
+            onOpenWorkspace={(reqItemId) => {
+              setSelectedCalibrationRequestItemId(reqItemId);
+              setCurrentView('lab-calibration-detail');
+            }}
+          />
+        )}
+        {currentView === 'lab-calibration-detail' && (
+          <CalibrationWorkspacePage
+            requestItemId={selectedCalibrationRequestItemId || ''}
+            onBack={() => setCurrentView('lab-calibration')}
+          />
+        )}
+        {currentView === 'calibration-due-list' && (
+          <CalibrationDueListPage
+            onCreateRequest={() => setCurrentView('calibration-requests')}
+          />
+        )}
+        {currentView === 'service-requests' && (
+          <ServiceRequestListPage
+            onSelectServiceRequest={(srId) => {
+              setSelectedServiceRequestId(srId);
+              setCurrentView('service-request-detail');
+            }}
+          />
+        )}
+        {currentView === 'service-request-detail' && (
+          <ServiceRequestDetailsPage
+            serviceRequestId={selectedServiceRequestId || ''}
+            onBack={() => setCurrentView('service-requests')}
+            onReturnToCalibrationSuccess={() => setCurrentView('lab-calibration')}
+          />
+        )}
+        {currentView === 'vendor-outsourcing' && (
+          <VendorOutsourceListPage
+            onSelectOutsource={(id) => {
+              setSelectedOutsourceId(id);
+              setCurrentView('vendor-outsource-detail');
+            }}
+          />
+        )}
+        {currentView === 'vendor-outsource-detail' && (
+          <VendorOutsourceDetailsPage
+            outsourceId={selectedOutsourceId || ''}
+            onBack={() => setCurrentView('vendor-outsourcing')}
+          />
+        )}
+        {currentView === 'vendor-purchase-orders' && (
+          <VendorPOListPage
+            onSelectPO={(id) => {
+              setSelectedPOId(id);
+              setCurrentView('vendor-po-detail');
+            }}
+          />
+        )}
+        {currentView === 'vendor-po-detail' && (
+          <VendorPODetailsPage
+            poId={selectedPOId || ''}
+            onBack={() => setCurrentView('vendor-purchase-orders')}
+          />
+        )}
+        {currentView === 'quotations' && (
+          <QuotationListPage
+            onSelectQuotation={(id) => {
+              setSelectedQuotationId(id);
+              setCurrentView('quotation-detail');
+            }}
+            onCreateNew={() => setCurrentView('quotation-create')}
+          />
+        )}
+        {currentView === 'quotation-create' && (
+          <CreateQuotationPage
+            onBack={() => setCurrentView('quotations')}
+            onSuccess={(id) => {
+              setSelectedQuotationId(id);
+              setCurrentView('quotation-detail');
+            }}
+          />
+        )}
+        {currentView === 'quotation-detail' && (
+          <QuotationDetailsPage
+            quotationId={selectedQuotationId || ''}
+            onBack={() => setCurrentView('quotations')}
+            onRevisionSuccess={(id) => {
+              setSelectedQuotationId(id);
+              setCurrentView('quotation-detail');
+            }}
+          />
+        )}
+        {currentView === 'invoices' && (
+          <InvoiceListPage
+            onSelectInvoice={(id) => {
+              setSelectedInvoiceId(id);
+              setCurrentView('invoice-detail');
+            }}
+            onCreateNew={() => setCurrentView('invoice-create')}
+          />
+        )}
+        {currentView === 'invoice-create' && (
+          <CreateInvoicePage
+            onBack={() => setCurrentView('invoices')}
+            onSuccess={(id) => {
+              setSelectedInvoiceId(id);
+              setCurrentView('invoice-detail');
+            }}
+          />
+        )}
+        {currentView === 'invoice-detail' && (
+          <InvoiceDetailsPage
+            invoiceId={selectedInvoiceId || ''}
+            onBack={() => setCurrentView('invoices')}
+          />
+        )}
+        {currentView === 'dispatches' && (
+          <DispatchListPage
+            onSelectDispatch={(id) => {
+              setSelectedDispatchId(id);
+              setCurrentView('dispatch-detail');
+            }}
+            onCreateNew={() => setCurrentView('dispatch-create')}
+          />
+        )}
+        {currentView === 'dispatch-create' && (
+          <CreateDispatchPage
+            onBack={() => setCurrentView('dispatches')}
+            onSuccess={(id) => {
+              setSelectedDispatchId(id);
+              setCurrentView('dispatch-detail');
+            }}
+          />
+        )}
+        {currentView === 'dispatch-detail' && (
+          <DispatchDetailsPage
+            dispatchId={selectedDispatchId || ''}
+            onBack={() => setCurrentView('dispatches')}
           />
         )}
         {currentView === 'clients' && <ClientManagementPage />}

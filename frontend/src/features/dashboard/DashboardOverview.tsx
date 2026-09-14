@@ -21,6 +21,7 @@ import {
   ClipboardList,
   FlaskConical,
   FileCheck2,
+  Truck,
 } from 'lucide-react';
 
 export interface DashboardOverviewProps {
@@ -39,10 +40,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
           <div>
             <div className="flex items-center gap-2">
               <Badge variant="info" size="sm">
-                Step 1–8: Foundation + Auth/RBAC + Masters + Requests + Lab Queue + Item Verification
+                Step 1–15: Complete Commercial Module Pipeline Connected
               </Badge>
               <Badge variant="success" size="sm">
-                PostgreSQL RLS Active
+                PostgreSQL RLS + Cloudflare R2
               </Badge>
             </div>
             <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-900">
@@ -57,11 +58,36 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
 
           <div className="flex items-center gap-2.5 flex-wrap">
             <Button
+              onClick={() => onNavigate('dispatches')}
+              size="sm"
+              leftIcon={<Truck className="w-4 h-4 text-white" />}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              Dispatches & Delivery (Step 15)
+            </Button>
+            <Button
+              onClick={() => onNavigate('invoices')}
+              size="sm"
+              variant="outline"
+              leftIcon={<FileCheck2 className="w-4 h-4 text-slate-600" />}
+            >
+              Invoices
+            </Button>
+            <Button
+              onClick={() => onNavigate('quotations')}
+              size="sm"
+              variant="outline"
+              leftIcon={<ScrollText className="w-4 h-4 text-slate-600" />}
+            >
+              Quotations
+            </Button>
+            <Button
               onClick={() => onNavigate('lab-verification')}
               size="sm"
-              leftIcon={<FileCheck2 className="w-4 h-4 text-white" />}
+              variant="outline"
+              leftIcon={<FileCheck2 className="w-4 h-4 text-slate-600" />}
             >
-              Verification (Step 8)
+              Verification
             </Button>
             <Button
               onClick={() => onNavigate('lab-queue')}

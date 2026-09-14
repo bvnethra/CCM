@@ -21,8 +21,8 @@ export const tenantFormSchema = z.object({
     .max(50)
     .regex(/^[A-Z0-9_-]+$/i, 'Code must contain only alphanumeric characters, dashes, or underscores'),
   status: z.enum(['active', 'inactive', 'suspended']),
-  timezone: z.string().optional().default('UTC'),
-  currency: z.string().optional().default('USD'),
+  timezone: z.string().optional().default('Asia/Kolkata'),
+  currency: z.string().optional().default('INR'),
   complianceStandard: z.string().optional().default('ISO/IEC 17025'),
 });
 

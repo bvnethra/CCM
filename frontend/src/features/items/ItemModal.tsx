@@ -384,7 +384,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
 
             <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4 space-y-3">
               <Input
-                label="Base Commercial / Standard Calibration Cost ($ / ₹)"
+                label="Base Commercial / Standard Calibration Cost (₹ INR)"
                 type="number"
                 min={0}
                 step="0.01"

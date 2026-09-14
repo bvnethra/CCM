@@ -230,7 +230,7 @@ export interface AuditLog {
 }
 
 export type CalibrationRequestPriority = 'NORMAL' | 'URGENT';
-export type CalibrationRequestStatus = 'CREATED' | 'COLLECTED' | 'LAB_QUEUE' | 'VERIFICATION' | 'VERIFIED' | 'ON_HOLD' | 'CANCELLED';
+export type CalibrationRequestStatus = 'CREATED' | 'COLLECTED' | 'LAB_QUEUE' | 'VERIFICATION' | 'VERIFIED' | 'ON_HOLD' | 'CANCELLED' | 'DISPATCHED' | 'PARTIALLY_COMPLETED' | 'COMPLETED';
 export type ItemAvailability = 'YES' | 'NO';
 export type LabAssignmentStatus = 'ACTIVE' | 'REASSIGNED' | 'COMPLETED';
 
@@ -429,3 +429,593 @@ export interface VerificationQueueItem {
   verification_result?: VerificationResult | 'PENDING';
   verification?: Verification | null;
 }
+
+// ============================================================================
+// STEP 9 TYPES: CALIBRATION, MEASUREMENTS, CERTIFICATES & DUE LIST
+// ============================================================================
+export type CalibrationResult = 'PASS' | 'FAIL' | 'ADJUSTED' | 'NOT_CALIBRATABLE' | 'OUTSOURCE';
+export type CalibrationStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'NOT_CALIBRATABLE';
+export type MeasurementResult = 'PASS' | 'FAIL' | 'NOT_TESTED';
+export type DueStatus = 'OVERDUE' | 'DUE_SOON' | 'UPCOMING';
+
+export interface CalibrationMeasurement {
+  id: string;
+  tenant_id: string;
+  calibration_id: string;
+  measurement_point: string;
+  nominal_value?: number | null;
+  observed_value?: number | null;
+  unit?: string | null;
+  tolerance_min?: number | null;
+  tolerance_max?: number | null;
+  error_value?: number | null;
+  measurement_result: MeasurementResult;
+  remarks?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Calibration {
+  id: string;
+  tenant_id: string;
+  request_id: string;
+  request_item_id: string;
+  item_id: string;
+  calibrated_by: string;
+  calibration_started_at: string;
+  calibration_completed_at?: string | null;
+  calibration_method?: string | null;
+  environmental_conditions?: string | null;
+  result: CalibrationResult;
+  remarks?: string | null;
+  status: CalibrationStatus;
+  calibration_date?: string | null;
+  next_due_date?: string | null;
+  calibration_frequency?: number | null;
+  calibration_frequency_unit?: string | null;
+  frequency_override?: boolean;
+  frequency_override_reason?: string | null;
+  frequency_overridden_by?: string | null;
+  frequency_overridden_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  calibrated_by_user?: {
+    id: string;
+    full_name: string;
+    email: string;
+    role?: string;
+  } | null;
+  item?: ItemMaster | null;
+}
+
+export interface Certificate {
+  id: string;
+  tenant_id: string;
+  request_id: string;
+  request_item_id: string;
+  calibration_id: string;
+  certificate_number: string;
+  document_type: string;
+  file_name: string;
+  storage_reference: string;
+  version: number;
+  generated_by: string;
+  generated_at: string;
+  created_at: string;
+  updated_at: string;
+  generated_by_user?: {
+    id: string;
+    full_name: string;
+    email: string;
+    role?: string;
+  } | null;
+  download_url?: string;
+}
+
+export interface CalibrationQueueItem {
+  request_id: string;
+  request_number: string;
+  priority: CalibrationRequestPriority;
+  client?: Client | null;
+  request_item_id: string;
+  item_id: string;
+  item_code: string;
+  item_name: string;
+  serial_number: string;
+  verification_result: VerificationResult;
+  verified_by: string;
+  calibration?: Calibration | null;
+  calibration_status: CalibrationStatus;
+  calibration_result?: CalibrationResult | null;
+  created_at: string;
+}
+
+export interface DueListItem {
+  id: string;
+  request_id: string;
+  request_number: string;
+  item_id: string;
+  item_code: string;
+  item_name: string;
+  serial_number: string;
+  client?: Client | null;
+  last_calibration_date: string;
+  calibration_frequency: number;
+  calibration_frequency_unit: string;
+  next_due_date: string;
+  days_remaining: number;
+  due_status: DueStatus;
+  result: CalibrationResult;
+}
+
+// ============================================================================
+// STEP 10 TYPES: FAULTY ITEM, SERVICE REQUIRED & CLIENT APPROVAL
+// ============================================================================
+export type ServiceStatus =
+  | 'SERVICE_REQUIRED'
+  | 'AWAITING_CLIENT_APPROVAL'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'IN_SERVICE'
+  | 'SERVICE_COMPLETED'
+  | 'CANCELLED';
+
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface ServiceApproval {
+  id: string;
+  tenant_id: string;
+  service_request_id: string;
+  approval_status: ApprovalStatus;
+  approved_by_client_name?: string | null;
+  approved_by_client_role?: string | null;
+  approval_remarks?: string | null;
+  approval_reference?: string | null;
+  approved_at?: string | null;
+  rejected_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ServiceRequest {
+  id: string;
+  tenant_id: string;
+  request_id: string;
+  request_item_id: string;
+  calibration_id: string;
+  client_id: string;
+  service_status: ServiceStatus;
+  fault_description: string;
+  service_required: boolean;
+  estimated_service_cost?: number | null;
+  service_remarks?: string | null;
+  created_by: string;
+  started_by?: string | null;
+  started_at?: string | null;
+  completed_by?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  client?: Client | null;
+  calibration?: Calibration | null;
+  request?: CalibrationRequest | null;
+  request_item?: RequestItem | null;
+  created_by_user?: UserProfile | null;
+  started_by_user?: UserProfile | null;
+  completed_by_user?: UserProfile | null;
+  approvals?: ServiceApproval[];
+}
+
+// ============================================================================
+// STEP 11 TYPES: VENDOR OUTSOURCING WORKFLOW & PURCHASE ORDERS
+// ============================================================================
+export type OutsourceStatus =
+  | 'OUTSOURCE_REQUIRED'
+  | 'VENDOR_SELECTED'
+  | 'PO_DRAFT'
+  | 'PO_ISSUED'
+  | 'SENT_TO_VENDOR'
+  | 'VENDOR_RECEIVED'
+  | 'VENDOR_CALIBRATION'
+  | 'VENDOR_COMPLETED'
+  | 'AWAITING_RETURN'
+  | 'RETURNED'
+  | 'RECEIVED_BACK'
+  | 'REINTEGRATED'
+  | 'VENDOR_FAILED'
+  | 'CANCELLED';
+
+export type POStatus = 'DRAFT' | 'ISSUED' | 'ACKNOWLEDGED' | 'CLOSED' | 'CANCELLED';
+export type MovementType = 'SEND_TO_VENDOR' | 'RETURN_FROM_VENDOR';
+export type VendorCalibrationResult = 'PASS' | 'FAIL' | 'ADJUSTED' | 'NOT_CALIBRATABLE';
+
+export interface VendorOutsourceRequest {
+  id: string;
+  tenant_id: string;
+  organization_id?: string | null;
+  sub_org_id?: string | null;
+  request_id: string;
+  request_item_id: string;
+  calibration_id?: string | null;
+  vendor_id: string;
+  outsource_status: OutsourceStatus;
+  outsource_reason: string;
+  vendor_reference?: string | null;
+  expected_return_date?: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  returned_at?: string | null;
+  received_by?: string | null;
+  remarks?: string | null;
+  vendor?: Vendor | null;
+  request?: CalibrationRequest | null;
+  request_item?: RequestItem | null;
+  calibration?: Calibration | null;
+  created_by_user?: UserProfile | null;
+  received_by_user?: UserProfile | null;
+  purchase_order?: PurchaseOrder | null;
+  movements?: VendorOutsourceMovement[];
+  vendor_calibration_record?: VendorCalibrationRecord | null;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  tenant_id: string;
+  organization_id?: string | null;
+  sub_org_id?: string | null;
+  po_number: string;
+  vendor_id: string;
+  request_id?: string | null;
+  outsource_request_id?: string | null;
+  po_date: string;
+  status: POStatus;
+  currency: string;
+  subtotal: number;
+  tax_amount: number;
+  total_amount: number;
+  created_by: string;
+  issued_by?: string | null;
+  issued_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  remarks?: string | null;
+  vendor?: Vendor | null;
+  request?: CalibrationRequest | null;
+  created_by_user?: UserProfile | null;
+  issued_by_user?: UserProfile | null;
+  items?: POItem[];
+}
+
+export interface POItem {
+  id: string;
+  tenant_id: string;
+  purchase_order_id: string;
+  request_item_id: string;
+  item_id: string;
+  description?: string | null;
+  quantity: number;
+  unit_cost: number;
+  line_total: number;
+  created_at: string;
+  updated_at: string;
+  item?: ItemMaster | null;
+}
+
+export interface VendorOutsourceMovement {
+  id: string;
+  tenant_id: string;
+  outsource_request_id: string;
+  movement_type: MovementType;
+  tracking_number?: string | null;
+  carrier?: string | null;
+  movement_date: string;
+  performed_by: string;
+  remarks?: string | null;
+  document_id?: string | null;
+  created_at: string;
+  performed_by_user?: UserProfile | null;
+}
+
+export interface VendorCalibrationRecord {
+  id: string;
+  tenant_id: string;
+  outsource_request_id: string;
+  vendor_id: string;
+  vendor_certificate_number: string;
+  vendor_result: VendorCalibrationResult;
+  calibrated_at?: string | null;
+  report_received_at: string;
+  report_document_id?: string | null;
+  remarks?: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  created_by_user?: UserProfile | null;
+  report_document?: DocumentItem | null;
+}
+
+export type QuotationStatus =
+  | 'DRAFT'
+  | 'PENDING_APPROVAL'
+  | 'APPROVED'
+  | 'SENT_TO_CLIENT'
+  | 'CLIENT_APPROVED'
+  | 'CLIENT_REJECTED'
+  | 'EXPIRED'
+  | 'CANCELLED';
+
+export type QuotationClientResponse = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type QuotationApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface QuotationItem {
+  id: string;
+  tenant_id: string;
+  quotation_id: string;
+  request_item_id: string;
+  item_id: string;
+  description?: string | null;
+  quantity: number;
+  standard_cost: number;
+  override_cost?: number | null;
+  final_unit_cost: number;
+  tax_rate: number;
+  tax_amount: number;
+  line_total: number;
+  override_reason?: string | null;
+  override_by?: string | null;
+  override_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  item?: ItemMaster | null;
+  request_item?: RequestItem | null;
+  calibration_source?: 'INTERNAL' | 'VENDOR';
+}
+
+export interface QuotationApproval {
+  id: string;
+  tenant_id: string;
+  quotation_id: string;
+  approval_status: QuotationApprovalStatus;
+  requested_by: string;
+  approved_by?: string | null;
+  approval_remarks?: string | null;
+  requested_at: string;
+  approved_at?: string | null;
+  rejected_at?: string | null;
+  requested_by_user?: UserProfile | null;
+  approved_by_user?: UserProfile | null;
+}
+
+export interface Quotation {
+  id: string;
+  tenant_id: string;
+  organization_id?: string | null;
+  sub_org_id?: string | null;
+  quotation_number: string;
+  request_id: string;
+  client_id: string;
+  quotation_date: string;
+  valid_until: string;
+  status: QuotationStatus;
+  subtotal: number;
+  tax_amount: number;
+  discount_amount: number;
+  total_amount: number;
+  currency: string;
+  version_number: number;
+  parent_quotation_id?: string | null;
+  created_by?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  sent_at?: string | null;
+  client_response_at?: string | null;
+  client_response: QuotationClientResponse;
+  client_response_remarks?: string | null;
+  remarks?: string | null;
+  created_at: string;
+  updated_at: string;
+  client?: Client | null;
+  request?: CalibrationRequest | null;
+  items?: QuotationItem[];
+  approvals?: QuotationApproval[];
+  created_by_user?: UserProfile | null;
+  approved_by_user?: UserProfile | null;
+}
+
+export type InvoiceType = 'STANDARD' | 'PARTIAL' | 'URGENT';
+export type InvoiceStatus = 'DRAFT' | 'READY' | 'ISSUED' | 'PAID' | 'SIGNATURE_REQUIRED' | 'SIGNED' | 'CANCELLED' | 'COMPLETED';
+
+export interface InvoiceItem {
+  id: string;
+  tenant_id: string;
+  invoice_id: string;
+  request_item_id: string;
+  item_id: string;
+  quotation_item_id?: string | null;
+  description?: string | null;
+  quantity: number;
+  unit_price: number;
+  tax_rate: number;
+  tax_amount: number;
+  discount_amount: number;
+  line_total: number;
+  created_at: string;
+  updated_at: string;
+  item?: ItemMaster | null;
+  request_item?: RequestItem | null;
+  quotation_item?: QuotationItem | null;
+}
+
+export interface Invoice {
+  id: string;
+  tenant_id: string;
+  organization_id?: string | null;
+  sub_org_id?: string | null;
+  invoice_number: string;
+  quotation_id: string;
+  request_id: string;
+  client_id: string;
+  invoice_date: string;
+  due_date: string;
+  invoice_type: InvoiceType;
+  status: InvoiceStatus;
+  currency: string;
+  subtotal: number;
+  tax_amount: number;
+  discount_amount: number;
+  total_amount: number;
+  urgent_reason?: string | null;
+  remarks?: string | null;
+  created_by?: string | null;
+  updated_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  client?: Client | null;
+  request?: CalibrationRequest | null;
+  quotation?: Quotation | null;
+  items?: InvoiceItem[];
+  created_by_user?: UserProfile | null;
+  signature?: Signature | null;
+  signature_request?: InvoiceSignatureRequest | null;
+}
+
+export type SignatureType = 'INVOICE' | 'DELIVERY';
+export type SignatureStatus = 'PENDING' | 'SIGNED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED';
+export type SignatureRequestStatus = 'PENDING' | 'OPENED' | 'SIGNED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED';
+
+export interface Signature {
+  id: string;
+  tenant_id: string;
+  organization_id?: string | null;
+  sub_org_id?: string | null;
+  invoice_id: string;
+  client_id: string;
+  signature_type: SignatureType;
+  signature_status: SignatureStatus;
+  signer_name: string;
+  signer_role?: string | null;
+  signer_email?: string | null;
+  signer_phone?: string | null;
+  signature_reference: string;
+  signed_at?: string | null;
+  signature_storage_reference?: string | null;
+  document_id?: string | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InvoiceSignatureRequest {
+  id: string;
+  tenant_id: string;
+  organization_id?: string | null;
+  sub_org_id?: string | null;
+  invoice_id: string;
+  client_id: string;
+  request_reference: string;
+  status: SignatureRequestStatus;
+  requested_at: string;
+  expires_at: string;
+  created_by?: string | null;
+  signer_name?: string | null;
+  signer_role?: string | null;
+  signer_email?: string | null;
+  signer_phone?: string | null;
+  rejection_reason?: string | null;
+  rejected_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  invoice?: Invoice | null;
+  client?: Client | null;
+}
+
+export type DispatchType = 'STANDARD' | 'PARTIAL' | 'URGENT';
+export type DispatchStatus =
+  | 'READY_FOR_DISPATCH'
+  | 'PACKING'
+  | 'PACKED'
+  | 'DISPATCHED'
+  | 'IN_TRANSIT'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED'
+  | 'CANCELLED';
+
+export type DeliveryStatus = 'DELIVERED' | 'PARTIALLY_DELIVERED' | 'REJECTED' | 'RETURNED';
+
+export interface DispatchItem {
+  id: string;
+  tenant_id: string;
+  dispatch_id: string;
+  request_item_id: string;
+  item_id: string;
+  invoice_id?: string | null;
+  invoice_item_id?: string | null;
+  quantity: number;
+  package_reference?: string | null;
+  created_at: string;
+  updated_at: string;
+  item?: ItemMaster | null;
+  request_item?: RequestItem | null;
+  invoice_item?: InvoiceItem | null;
+}
+
+export interface Delivery {
+  id: string;
+  tenant_id: string;
+  dispatch_id: string;
+  client_id: string;
+  recipient_name: string;
+  recipient_role?: string | null;
+  recipient_email?: string | null;
+  recipient_phone?: string | null;
+  delivery_date: string;
+  delivery_status: DeliveryStatus;
+  proof_of_delivery_storage_ref?: string | null;
+  remarks?: string | null;
+  created_at: string;
+  updated_at: string;
+  signature?: Signature | null;
+}
+
+export interface Dispatch {
+  id: string;
+  tenant_id: string;
+  organization_id?: string | null;
+  sub_org_id?: string | null;
+  dispatch_number: string;
+  request_id: string;
+  invoice_id?: string | null;
+  client_id: string;
+  dispatch_type: DispatchType;
+  status: DispatchStatus;
+  dispatch_date: string;
+  expected_delivery_date?: string | null;
+  carrier_name?: string | null;
+  tracking_number?: string | null;
+  shipping_address: string;
+  billing_address?: string | null;
+  urgent_reason?: string | null;
+  remarks?: string | null;
+  created_by?: string | null;
+  dispatched_by?: string | null;
+  dispatched_at?: string | null;
+  delivered_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  client?: Client | null;
+  request?: CalibrationRequest | null;
+  invoice?: Invoice | null;
+  items?: DispatchItem[];
+  delivery?: Delivery | null;
+  created_by_user?: UserProfile | null;
+  dispatched_by_user?: UserProfile | null;
+}
+
+
+
+
+
+
+

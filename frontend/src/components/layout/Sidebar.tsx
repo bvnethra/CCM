@@ -15,6 +15,10 @@ import {
   ClipboardList,
   FlaskConical,
   FileCheck2,
+  Award,
+  Calendar,
+  Wrench,
+  Truck,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
@@ -89,6 +93,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Item Verification',
           icon: <FileCheck2 className="w-4 h-4" />,
           badge: 'Step 8',
+        },
+        {
+          id: 'lab-calibration',
+          label: 'Calibration Operations',
+          icon: <Award className="w-4 h-4" />,
+          badge: 'Step 9',
+        },
+        {
+          id: 'calibration-due-list',
+          label: 'Calibration Due List',
+          icon: <Calendar className="w-4 h-4" />,
+          badge: 'Step 9',
+        },
+        {
+          id: 'service-requests',
+          label: 'Service & Approvals',
+          icon: <Wrench className="w-4 h-4" />,
+          badge: 'Step 10',
+        },
+        {
+          id: 'vendor-outsourcing',
+          label: 'Vendor Outsourcing',
+          icon: <Truck className="w-4 h-4" />,
+          badge: 'Step 11',
+        },
+        {
+          id: 'vendor-purchase-orders',
+          label: 'Vendor POs',
+          icon: <FileCheck2 className="w-4 h-4" />,
+          badge: 'Step 11',
+        },
+        {
+          id: 'quotations',
+          label: 'Commercial Quotations',
+          icon: <ScrollText className="w-4 h-4" />,
+          badge: 'Step 12',
+        },
+        {
+          id: 'invoices',
+          label: 'Commercial Invoices',
+          icon: <FileCheck2 className="w-4 h-4" />,
+          badge: 'Step 13',
+        },
+        {
+          id: 'dispatches',
+          label: 'Dispatches & Delivery',
+          icon: <Truck className="w-4 h-4" />,
+          badge: 'Step 15',
         },
       ],
     },

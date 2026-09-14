@@ -1,4 +1,4 @@
-import { Tenant, Organization, SubOrganization, AuditLog, UserProfile, Role, Permission, Client, Vendor, ItemMaster, CalibrationRequest, RequestItem, LabRequestAssignment, RequestStatusHistory, Verification, DocumentItem } from '../types';
+import { Tenant, Organization, SubOrganization, AuditLog, UserProfile, Role, Permission, Client, Vendor, ItemMaster, CalibrationRequest, RequestItem, LabRequestAssignment, RequestStatusHistory, Verification, DocumentItem, ServiceRequest, ServiceApproval, VendorOutsourceRequest, PurchaseOrder, POItem, VendorOutsourceMovement, VendorCalibrationRecord, Quotation, QuotationItem, QuotationApproval, Invoice, InvoiceItem, Signature, InvoiceSignatureRequest, Dispatch, DispatchItem, Delivery } from '../types';
 
 export const initialTenants: Tenant[] = [
   {
@@ -7,8 +7,8 @@ export const initialTenants: Tenant[] = [
     code: 'ACME-CAL',
     status: 'active',
     settings: {
-      timezone: 'UTC',
-      currency: 'USD',
+      timezone: 'Asia/Kolkata',
+      currency: 'INR',
       complianceStandard: 'ISO/IEC 17025',
     },
     created_at: '2025-01-15T08:00:00Z',
@@ -20,8 +20,8 @@ export const initialTenants: Tenant[] = [
     code: 'APEX-MET',
     status: 'active',
     settings: {
-      timezone: 'America/New_York',
-      currency: 'USD',
+      timezone: 'Asia/Kolkata',
+      currency: 'INR',
       complianceStandard: 'ANSI/NCSL Z540.3',
     },
     created_at: '2025-02-10T10:30:00Z',
@@ -33,8 +33,8 @@ export const initialTenants: Tenant[] = [
     code: 'VORTEX-PT',
     status: 'inactive',
     settings: {
-      timezone: 'Europe/London',
-      currency: 'GBP',
+      timezone: 'Asia/Kolkata',
+      currency: 'INR',
       complianceStandard: 'UKAS LAB 12',
     },
     created_at: '2025-03-01T12:00:00Z',
@@ -1120,4 +1120,465 @@ export const initialDocuments: DocumentItem[] = [
     },
   },
 ];
+
+export const initialCalibrations: any[] = [
+  {
+    id: 'cal-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    request_id: '77777777-2222-7777-a111-222222222222',
+    request_item_id: 'ri-003',
+    item_id: '66666666-1111-6666-a111-111111111111',
+    calibrated_by: 'usr-acme-lab',
+    calibration_started_at: '2026-09-14T10:00:00Z',
+    calibration_completed_at: '2026-09-14T11:30:00Z',
+    calibration_method: 'Standard Direct Comparison Metrology (ISO 17025 compliant)',
+    environmental_conditions: 'Temperature: 23.0°C ± 0.5°C, Humidity: 48% RH, Pressure: 101.3 kPa',
+    result: 'PASS',
+    status: 'COMPLETED',
+    calibration_date: '2026-09-14',
+    next_due_date: '2027-09-14',
+    calibration_frequency: 12,
+    calibration_frequency_unit: 'MONTHS',
+    frequency_override: false,
+    remarks: 'Instrument performed within nominal specifications across all test points.',
+    created_at: '2026-09-14T10:00:00Z',
+    updated_at: '2026-09-14T11:30:00Z',
+    calibrated_by_user: {
+      id: 'usr-acme-lab',
+      full_name: 'David Chen',
+      email: 'david.c@acmecal.com',
+      role: 'lab_user',
+    },
+  },
+];
+
+export const initialCalibrationMeasurements: any[] = [
+  {
+    id: 'meas-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    calibration_id: 'cal-001',
+    measurement_point: 'Zero Reference (0.0 bar)',
+    nominal_value: 0.0,
+    observed_value: 0.01,
+    unit: 'bar',
+    tolerance_min: -0.05,
+    tolerance_max: 0.05,
+    error_value: 0.01,
+    measurement_result: 'PASS',
+    remarks: 'Within zero tolerance threshold',
+    created_at: '2026-09-14T10:15:00Z',
+    updated_at: '2026-09-14T10:15:00Z',
+  },
+  {
+    id: 'meas-002',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    calibration_id: 'cal-001',
+    measurement_point: 'Mid Scale (5.0 bar)',
+    nominal_value: 5.0,
+    observed_value: 5.02,
+    unit: 'bar',
+    tolerance_min: 4.90,
+    tolerance_max: 5.10,
+    error_value: 0.02,
+    measurement_result: 'PASS',
+    remarks: 'Linear response verified',
+    created_at: '2026-09-14T10:30:00Z',
+    updated_at: '2026-09-14T10:30:00Z',
+  },
+  {
+    id: 'meas-003',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    calibration_id: 'cal-001',
+    measurement_point: 'Full Scale (10.0 bar)',
+    nominal_value: 10.0,
+    observed_value: 10.04,
+    unit: 'bar',
+    tolerance_min: 9.80,
+    tolerance_max: 10.20,
+    error_value: 0.04,
+    measurement_result: 'PASS',
+    remarks: 'Full span stability confirmed',
+    created_at: '2026-09-14T10:45:00Z',
+    updated_at: '2026-09-14T10:45:00Z',
+  },
+];
+
+export const initialCertificates: any[] = [
+  {
+    id: 'cert-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    request_id: '77777777-2222-7777-a111-222222222222',
+    request_item_id: 'ri-003',
+    calibration_id: 'cal-001',
+    certificate_number: 'CERT-2026-000101',
+    document_type: 'CALIBRATION_CERTIFICATE',
+    file_name: 'Certificate_CERT-2026-000101_v1.pdf',
+    storage_reference: 'tenants/11111111-1111-4111-a111-111111111111/certificates/Certificate_CERT-2026-000101_v1.pdf',
+    version: 1,
+    generated_by: 'usr-acme-lab',
+    generated_at: '2026-09-14T11:35:00Z',
+    created_at: '2026-09-14T11:35:00Z',
+    updated_at: '2026-09-14T11:35:00Z',
+    generated_by_user: {
+      id: 'usr-acme-lab',
+      full_name: 'David Chen',
+      email: 'david.c@acmecal.com',
+      role: 'lab_user',
+    },
+  },
+];
+
+export const initialServiceApprovals: ServiceApproval[] = [
+  {
+    id: 'sa-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    service_request_id: 'sr-001',
+    approval_status: 'PENDING',
+    created_at: '2026-09-14T11:00:00Z',
+    updated_at: '2026-09-14T11:00:00Z',
+  },
+  {
+    id: 'sa-002',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    service_request_id: 'sr-002',
+    approval_status: 'APPROVED',
+    approved_by_client_name: 'Rohan Sharma',
+    approved_by_client_role: 'Quality Assurance Manager',
+    approval_remarks: 'Approved for factory repair and sensor head recalibration under PO-2026-889.',
+    approval_reference: 'PO-2026-889',
+    approved_at: '2026-09-14T14:20:00Z',
+    created_at: '2026-09-14T12:00:00Z',
+    updated_at: '2026-09-14T14:20:00Z',
+  },
+];
+
+export const initialServiceRequests: ServiceRequest[] = [
+  {
+    id: 'sr-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    request_id: '77777777-2222-7777-a111-222222222222',
+    request_item_id: 'ri-002',
+    calibration_id: 'cal-002',
+    client_id: '44444444-1111-4444-a111-111111111111',
+    service_status: 'AWAITING_CLIENT_APPROVAL',
+    fault_description: 'Pressure sensor drift exceeded maximum permissible error at 100 bar test point (2.8 bar error vs 0.5 bar MPE limit). Internal diaphragm valve seal degradation suspected.',
+    service_required: true,
+    estimated_service_cost: 850.00,
+    service_remarks: 'Requires OEM sensor head replacement and seal kit overhaul before standard calibration can resume.',
+    created_by: 'usr-acme-lab-tech',
+    created_at: '2026-09-14T11:00:00Z',
+    updated_at: '2026-09-14T11:00:00Z',
+    client: initialClients[0],
+    created_by_user: demoProfiles[2],
+  },
+  {
+    id: 'sr-002',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    request_id: '77777777-2222-7777-a111-222222222222',
+    request_item_id: 'ri-003',
+    calibration_id: 'cal-001',
+    client_id: '44444444-1111-4444-a111-111111111111',
+    service_status: 'APPROVED',
+    fault_description: 'Intermittent zero drift observed during pre-calibration thermal stabilization.',
+    service_required: true,
+    estimated_service_cost: 420.00,
+    service_remarks: 'Client approved component servicing.',
+    created_by: 'usr-acme-lab-tech',
+    created_at: '2026-09-14T12:00:00Z',
+    updated_at: '2026-09-14T14:20:00Z',
+    client: initialClients[0],
+    created_by_user: demoProfiles[2],
+  },
+];
+
+export const initialPurchaseOrders: PurchaseOrder[] = [
+  {
+    id: 'po-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    po_number: 'VPO-2026-000001',
+    vendor_id: '55555555-1111-5555-a111-111111111111',
+    request_id: '77777777-2222-7777-a111-222222222222',
+    outsource_request_id: 'vor-001',
+    po_date: '2026-09-14',
+    status: 'ISSUED',
+    currency: 'INR',
+    subtotal: 15000.00,
+    tax_amount: 2700.00,
+    total_amount: 17700.00,
+    created_by: 'usr-acme-lab-tech',
+    issued_by: 'usr-acme-admin',
+    issued_at: '2026-09-14T15:00:00Z',
+    created_at: '2026-09-14T14:00:00Z',
+    updated_at: '2026-09-14T15:00:00Z',
+    remarks: 'Authorized for primary pressure standard recalibration under NABL accreditation.',
+    vendor: initialVendors[0],
+    created_by_user: demoProfiles[2],
+    issued_by_user: demoProfiles[1],
+  },
+];
+
+export const initialPOItems: POItem[] = [
+  {
+    id: 'poi-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    purchase_order_id: 'po-001',
+    request_item_id: 'ri-002',
+    item_id: '66666666-2222-6666-a111-222222222222',
+    description: 'External Primary Pressure Calibration PACE5000 (0 to 210 bar)',
+    quantity: 1,
+    unit_cost: 15000.00,
+    line_total: 15000.00,
+    created_at: '2026-09-14T14:00:00Z',
+    updated_at: '2026-09-14T14:00:00Z',
+    item: initialItems[1],
+  },
+];
+
+export const initialVendorOutsourceMovements: VendorOutsourceMovement[] = [
+  {
+    id: 'vom-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    outsource_request_id: 'vor-001',
+    movement_type: 'SEND_TO_VENDOR',
+    tracking_number: 'BLR-EXP-99201',
+    carrier: 'BlueDart Express Logistics',
+    movement_date: '2026-09-14',
+    performed_by: 'usr-acme-collector',
+    remarks: 'Dispatched in shock-absorbent flight case with temperature data logger.',
+    created_at: '2026-09-14T16:00:00Z',
+    performed_by_user: demoProfiles[3],
+  },
+];
+
+export const initialVendorCalibrationRecords: VendorCalibrationRecord[] = [];
+
+export const initialVendorOutsourceRequests: VendorOutsourceRequest[] = [
+  {
+    id: 'vor-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    request_id: '77777777-2222-7777-a111-222222222222',
+    request_item_id: 'ri-002',
+    calibration_id: 'cal-002',
+    vendor_id: '55555555-1111-5555-a111-111111111111',
+    outsource_status: 'PO_ISSUED',
+    outsource_reason: 'Primary pressure reference transducer exceeds internal lab reference range.',
+    vendor_reference: 'NABL-LAB-REQ-881',
+    expected_return_date: '2026-09-28',
+    created_by: 'usr-acme-lab-tech',
+    created_at: '2026-09-14T13:30:00Z',
+    updated_at: '2026-09-14T15:00:00Z',
+    remarks: 'Sent to National Standard Metrology Labs under VPO-2026-000001.',
+    vendor: initialVendors[0],
+    request: initialCalibrationRequests[1],
+    request_item: initialRequestItems[1],
+    created_by_user: demoProfiles[2],
+    purchase_order: initialPurchaseOrders[0],
+    movements: initialVendorOutsourceMovements,
+  },
+];
+
+export const initialQuotationItems: QuotationItem[] = [
+  {
+    id: 'qi-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    quotation_id: 'quo-001',
+    request_item_id: 'ri-001',
+    item_id: '77777777-1111-4777-a111-111111111111',
+    description: 'Precision Digital Multimeter 6.5 Digit Calibration',
+    quantity: 1,
+    standard_cost: 12500.00,
+    override_cost: null,
+    final_unit_cost: 12500.00,
+    tax_rate: 18.0,
+    tax_amount: 2250.00,
+    line_total: 14750.00,
+    created_at: '2026-09-14T17:00:00Z',
+    updated_at: '2026-09-14T17:00:00Z',
+    item: initialItems[0],
+    request_item: initialRequestItems[0],
+    calibration_source: 'INTERNAL',
+  },
+];
+
+export const initialQuotationApprovals: QuotationApproval[] = [
+  {
+    id: 'qa-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    quotation_id: 'quo-001',
+    approval_status: 'APPROVED',
+    requested_by: 'usr-acme-lab-tech',
+    approved_by: 'usr-acme-lab-mgr',
+    approval_remarks: 'Pricing verified against standard NABL rate chart. Approved for client dispatch.',
+    requested_at: '2026-09-14T17:15:00Z',
+    approved_at: '2026-09-14T17:30:00Z',
+    requested_by_user: demoProfiles[2],
+    approved_by_user: demoProfiles[1],
+  },
+];
+
+export const initialQuotations: Quotation[] = [
+  {
+    id: 'quo-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
+    quotation_number: 'QUO-2026-000001',
+    request_id: '77777777-1111-7777-a111-111111111111',
+    client_id: '44444444-1111-4444-a111-111111111111',
+    quotation_date: '2026-09-14',
+    valid_until: '2026-10-14',
+    status: 'APPROVED',
+    subtotal: 12500.00,
+    tax_amount: 2250.00,
+    discount_amount: 0.00,
+    total_amount: 14750.00,
+    currency: 'INR',
+    version_number: 1,
+    created_by: 'usr-acme-lab-tech',
+    approved_by: 'usr-acme-lab-mgr',
+    approved_at: '2026-09-14T17:30:00Z',
+    client_response: 'PENDING',
+    remarks: 'Commercial quotation for NABL accredited calibration of Digital Multimeter 6.5 Digit.',
+    created_at: '2026-09-14T17:00:00Z',
+    updated_at: '2026-09-14T17:30:00Z',
+    client: initialClients[0],
+    request: initialCalibrationRequests[0],
+    items: initialQuotationItems,
+    approvals: initialQuotationApprovals,
+    created_by_user: demoProfiles[2],
+    approved_by_user: demoProfiles[1],
+  },
+];
+
+export const initialInvoiceItems: InvoiceItem[] = [
+  {
+    id: 'inv-item-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    invoice_id: 'inv-001',
+    request_item_id: 'ri-001',
+    item_id: '77777777-1111-4777-a111-111111111111',
+    quotation_item_id: 'qi-001',
+    description: 'Precision Digital Multimeter 6.5 Digit Calibration Invoice',
+    quantity: 1,
+    unit_price: 12500.00,
+    tax_rate: 18.0,
+    tax_amount: 2250.00,
+    discount_amount: 0.00,
+    line_total: 14750.00,
+    created_at: '2026-09-14T18:00:00Z',
+    updated_at: '2026-09-14T18:00:00Z',
+    item: initialItems[0],
+    request_item: initialRequestItems[0],
+    quotation_item: initialQuotationItems[0],
+  },
+];
+
+export const initialInvoices: Invoice[] = [
+  {
+    id: 'inv-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
+    invoice_number: 'INV-2026-000001',
+    quotation_id: 'quo-001',
+    request_id: '77777777-1111-7777-a111-111111111111',
+    client_id: '44444444-1111-4444-a111-111111111111',
+    invoice_date: '2026-09-14',
+    due_date: '2026-10-14',
+    invoice_type: 'STANDARD',
+    status: 'READY',
+    currency: 'INR',
+    subtotal: 12500.00,
+    tax_amount: 2250.00,
+    discount_amount: 0.00,
+    total_amount: 14750.00,
+    remarks: 'Commercial tax invoice generated against Client Approved Quotation QUO-2026-000001.',
+    created_by: 'usr-acme-admin',
+    created_at: '2026-09-14T18:00:00Z',
+    updated_at: '2026-09-14T18:00:00Z',
+    client: initialClients[0],
+    request: initialCalibrationRequests[0],
+    quotation: initialQuotations[0],
+    items: initialInvoiceItems,
+    created_by_user: demoProfiles[1],
+  },
+];
+
+export const initialInvoiceSignatureRequests: InvoiceSignatureRequest[] = [
+  {
+    id: 'sig-req-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
+    invoice_id: 'inv-001',
+    client_id: '44444444-1111-4444-a111-111111111111',
+    request_reference: 'SIG-2026-000001',
+    status: 'PENDING',
+    requested_at: '2026-09-14T19:00:00Z',
+    expires_at: '2026-09-21T19:00:00Z',
+    created_by: 'usr-acme-admin',
+    signer_name: 'Dr. Rajesh Kumar',
+    signer_role: 'Quality Director',
+    signer_email: 'r.kumar@acme.com',
+    signer_phone: '+91 98765 43210',
+    created_at: '2026-09-14T19:00:00Z',
+    updated_at: '2026-09-14T19:00:00Z',
+  },
+];
+
+export const initialSignatures: Signature[] = [];
+
+export const initialDispatchItems: DispatchItem[] = [
+  {
+    id: 'dsp-item-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    dispatch_id: 'dsp-001',
+    request_item_id: 'ri-001',
+    item_id: '77777777-1111-4777-a111-111111111111',
+    invoice_id: 'inv-001',
+    invoice_item_id: 'inv-item-001',
+    quantity: 1,
+    package_reference: 'BOX-ACME-001',
+    created_at: '2026-09-14T19:30:00Z',
+    updated_at: '2026-09-14T19:30:00Z',
+    item: initialItems[0],
+    request_item: initialRequestItems[0],
+    invoice_item: initialInvoiceItems[0],
+  },
+];
+
+export const initialDeliveries: Delivery[] = [];
+
+export const initialDispatches: Dispatch[] = [
+  {
+    id: 'dsp-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
+    dispatch_number: 'DSP-2026-000001',
+    request_id: '77777777-1111-7777-a111-111111111111',
+    invoice_id: 'inv-001',
+    client_id: '44444444-1111-4444-a111-111111111111',
+    dispatch_type: 'STANDARD',
+    status: 'READY_FOR_DISPATCH',
+    dispatch_date: '2026-09-14',
+    expected_delivery_date: '2026-09-16',
+    carrier_name: 'BlueDart Logistics',
+    tracking_number: 'TRK-987654321',
+    shipping_address: 'Building 4, Tech Park, Whitefield, Bengaluru, Karnataka 560066',
+    billing_address: 'Building 4, Tech Park, Whitefield, Bengaluru, Karnataka 560066',
+    remarks: 'Calibrated precision equipment packed securely for courier dispatch.',
+    created_by: 'usr-acme-admin',
+    created_at: '2026-09-14T19:30:00Z',
+    updated_at: '2026-09-14T19:30:00Z',
+    client: initialClients[0],
+    request: initialCalibrationRequests[0],
+    invoice: initialInvoices[0],
+    items: initialDispatchItems,
+    created_by_user: demoProfiles[1],
+  },
+];
+
+
+
+
+
+
+
 
