@@ -29,12 +29,15 @@ import {
   RotateCcw,
   PackageCheck,
   Ban,
+  FlaskConical,
 } from 'lucide-react';
 
 const STATUS_FILTERS = [
   { label: 'All Statuses', value: 'all' },
   { label: 'Created (Pending Collection)', value: 'CREATED' },
   { label: 'Collected (In Transit/Intake)', value: 'COLLECTED' },
+  { label: 'In Lab Queue', value: 'LAB_QUEUE' },
+  { label: 'In Verification', value: 'VERIFICATION' },
   { label: 'On Hold', value: 'ON_HOLD' },
   { label: 'Cancelled', value: 'CANCELLED' },
 ];
@@ -45,7 +48,15 @@ const PRIORITY_FILTERS = [
   { label: 'Urgent (Expedited)', value: 'URGENT' },
 ];
 
-export const CalibrationRequestListPage: React.FC = () => {
+export interface CalibrationRequestListPageProps {
+  onOpenLabQueue?: () => void;
+  onOpenLabIntake?: (requestId: string) => void;
+}
+
+export const CalibrationRequestListPage: React.FC<CalibrationRequestListPageProps> = ({
+  onOpenLabQueue,
+  onOpenLabIntake,
+}) => {
   const { currentUser, hasPermission } = useAuth();
   const { activeTenant } = useTenant();
   const userRole = currentUser?.role || 'viewer';
@@ -166,6 +177,25 @@ export const CalibrationRequestListPage: React.FC = () => {
     }
   };
 
+  const handleMoveToLabQueue = async (req: CalibrationRequest) => {
+    if (!activeTenant || !currentUser) return;
+    try {
+      const updated = await apiClient.moveToLabQueue(
+        req.id,
+        activeTenant.id,
+        currentUser.id,
+        'Dispatched from Collection to Central Lab Queue'
+      );
+      setNotification({
+        message: `Calibration request ${updated.request_number} transferred to Lab Queue.`,
+        type: 'success',
+      });
+      loadData();
+    } catch (err: any) {
+      setNotification({ message: err.message || 'Failed to transfer to Lab Queue', type: 'error' });
+    }
+  };
+
   // Metrics Counters
   const totalCount = requests.length;
   const createdCount = requests.filter((r) => r.status === 'CREATED').length;
@@ -277,10 +307,21 @@ export const CalibrationRequestListPage: React.FC = () => {
         let variant: 'success' | 'warning' | 'destructive' | 'info' | 'default' = 'default';
         if (req.status === 'COLLECTED') variant = 'success';
         if (req.status === 'CREATED') variant = 'info';
+        if (req.status === 'LAB_QUEUE') variant = 'default';
+        if (req.status === 'VERIFICATION') variant = 'success';
         if (req.status === 'ON_HOLD') variant = 'warning';
         if (req.status === 'CANCELLED') variant = 'destructive';
 
-        return <Badge variant={variant}>{req.status}</Badge>;
+        return (
+          <div className="flex flex-col gap-0.5">
+            <Badge variant={variant}>{req.status.replace('_', ' ')}</Badge>
+            {req.status === 'LAB_QUEUE' && req.current_assignment?.assigned_to_user && (
+              <span className="text-[10px] text-slate-500 font-mono">
+                Tech: {req.current_assignment.assigned_to_user.full_name}
+              </span>
+            )}
+          </div>
+        );
       },
     },
     {
@@ -297,20 +338,50 @@ export const CalibrationRequestListPage: React.FC = () => {
             View
           </Button>
 
-          {canCancel && req.status !== 'CANCELLED' && req.status !== 'COLLECTED' && (
+          {(req.status === 'CREATED' || req.status === 'COLLECTED') && (
             <Button
               size="sm"
               variant="outline"
-              onClick={() => {
-                setCancelModalData(req);
-                setCancelRemarks('');
-              }}
-              title="Cancel Request"
-              className="text-rose-600 hover:bg-rose-50 hover:border-rose-300"
+              onClick={() => handleMoveToLabQueue(req)}
+              title="Transfer request to Central Lab Queue"
+              className="text-blue-700 hover:bg-blue-50 border-blue-200"
+              leftIcon={<FlaskConical className="w-3.5 h-3.5 text-blue-600" />}
             >
-              <Ban className="w-3.5 h-3.5" />
+              To Lab
             </Button>
           )}
+
+          {(req.status === 'LAB_QUEUE' || req.status === 'VERIFICATION') && onOpenLabIntake && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onOpenLabIntake(req.id)}
+              title="Open in Lab Queue Intake"
+              className="text-purple-700 hover:bg-purple-50 border-purple-200"
+              leftIcon={<FlaskConical className="w-3.5 h-3.5 text-purple-600" />}
+            >
+              Lab
+            </Button>
+          )}
+
+          {canCancel &&
+            req.status !== 'CANCELLED' &&
+            req.status !== 'COLLECTED' &&
+            req.status !== 'LAB_QUEUE' &&
+            req.status !== 'VERIFICATION' && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setCancelModalData(req);
+                  setCancelRemarks('');
+                }}
+                title="Cancel Request"
+                className="text-rose-600 hover:bg-rose-50 hover:border-rose-300"
+              >
+                <Ban className="w-3.5 h-3.5" />
+              </Button>
+            )}
         </div>
       ),
     },
@@ -357,6 +428,15 @@ export const CalibrationRequestListPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {onOpenLabQueue && (
+            <Button
+              variant="outline"
+              onClick={onOpenLabQueue}
+              leftIcon={<FlaskConical className="w-4 h-4 text-blue-600" />}
+            >
+              Lab Queue (Step 7)
+            </Button>
+          )}
           {canCreate && (
             <Button
               onClick={() => setIsCreateModalOpen(true)}

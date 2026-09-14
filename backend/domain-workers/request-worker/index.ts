@@ -492,6 +492,17 @@ requestWorker.patch('/calibration-requests/:id/status', async (c) => {
     return c.json({ success: false, error: updateErr.message }, 500);
   }
 
+  // Record into request_status_history
+  await supabase.from('request_status_history').insert({
+    tenant_id: user.tenantId,
+    request_id: id,
+    previous_status: existing.status,
+    new_status: targetStatus,
+    changed_by: user.userId,
+    changed_at: new Date().toISOString(),
+    remarks: parsed.data.remarks || null,
+  });
+
   await logAuditEvent(supabase, {
     tenantId: user.tenantId,
     userId: user.userId,
@@ -503,6 +514,107 @@ requestWorker.patch('/calibration-requests/:id/status', async (c) => {
   });
 
   return c.json({ success: true, data: updated });
+});
+
+// ==========================================
+// 5B. MOVE REQUEST TO LAB QUEUE
+// ==========================================
+requestWorker.post('/calibration-requests/:id/lab-queue', async (c) => {
+  const user = c.get('user');
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => ({}));
+  const remarks = body?.remarks || 'Transferred to Lab Queue for technician assignment and verification';
+
+  // Permission check
+  const hasPerm =
+    user.permissions.includes('request.submit') ||
+    user.permissions.includes('lab.queue.assign') ||
+    user.permissions.includes('*') ||
+    user.role === 'collection_agent' ||
+    user.role === 'lab_user' ||
+    user.role === 'tenant_admin';
+
+  if (!hasPerm) {
+    return c.json({ success: false, error: 'Forbidden: Missing permission to move request to lab queue' }, 403);
+  }
+
+  const supabase = getSupabase(c);
+
+  // 1. Fetch request
+  const { data: request, error: reqErr } = await supabase
+    .from('calibration_requests')
+    .select(`
+      *,
+      items:request_items(id, item_id, requested_quantity, item_available)
+    `)
+    .eq('id', id)
+    .eq('tenant_id', user.tenantId)
+    .single();
+
+  if (reqErr || !request) {
+    return c.json({ success: false, error: 'Calibration request not found' }, 404);
+  }
+
+  // 2. Eligibility checks
+  if (request.status === 'CANCELLED') {
+    return c.json({ success: false, error: 'Cancelled request cannot be moved to Lab Queue' }, 400);
+  }
+
+  if (request.status === 'LAB_QUEUE' || request.status === 'VERIFICATION') {
+    return c.json({ success: false, error: `Request is already in ${request.status} stage` }, 400);
+  }
+
+  const items = request.items || [];
+  if (items.length === 0) {
+    return c.json({ success: false, error: 'Request must have at least one line item before entering Lab Queue' }, 400);
+  }
+
+  const previousStatus = request.status;
+  const newStatus = 'LAB_QUEUE';
+  const timestamp = new Date().toISOString();
+
+  // 3. Update status to LAB_QUEUE
+  const { data: updated, error: updateErr } = await supabase
+    .from('calibration_requests')
+    .update({
+      status: newStatus,
+      updated_at: timestamp,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (updateErr) {
+    return c.json({ success: false, error: updateErr.message }, 500);
+  }
+
+  // 4. Record status history
+  await supabase.from('request_status_history').insert({
+    tenant_id: user.tenantId,
+    request_id: id,
+    previous_status: previousStatus,
+    new_status: newStatus,
+    changed_by: user.userId,
+    changed_at: timestamp,
+    remarks,
+  });
+
+  // 5. Audit event
+  await logAuditEvent(supabase, {
+    tenantId: user.tenantId,
+    userId: user.userId,
+    action: 'MOVE_TO_LAB_QUEUE',
+    resourceType: 'calibration_requests',
+    resourceId: id,
+    oldValues: { status: previousStatus },
+    newValues: { status: newStatus, remarks },
+  });
+
+  return c.json({
+    success: true,
+    data: updated,
+    message: `Request ${request.request_number} successfully moved to Lab Queue.`,
+  });
 });
 
 // ==========================================

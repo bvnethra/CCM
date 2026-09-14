@@ -256,3 +256,128 @@ export const calibrationRequestFormSchema = z.object({
 });
 
 export type CalibrationRequestFormValues = z.infer<typeof calibrationRequestFormSchema>;
+
+// STEP 7 SCHEMAS: LAB QUEUE & INTAKE
+
+export const assignLabRequestSchema = z.object({
+  assigned_to: z.string().min(1, 'Please select a lab technician'),
+  remarks: z.string().trim().max(1000).optional().or(z.literal('')),
+});
+
+export type AssignLabRequestValues = z.infer<typeof assignLabRequestSchema>;
+
+export const reassignLabRequestSchema = z.object({
+  new_assigned_to: z.string().min(1, 'Please select a new lab technician'),
+  remarks: z.string().trim().min(3, 'Reassignment reason is required (at least 3 characters)').max(1000),
+});
+
+export type ReassignLabRequestValues = z.infer<typeof reassignLabRequestSchema>;
+
+export const holdRequestSchema = z.object({
+  hold_reason: z.string().trim().min(3, 'Hold reason is mandatory (at least 3 characters)').max(1000),
+});
+
+export type HoldRequestValues = z.infer<typeof holdRequestSchema>;
+
+// STEP 8 SCHEMAS: ITEM VERIFICATION + PROOF DOCUMENTS
+
+export const itemVerificationFormSchema = z
+  .object({
+    item_match_status: z.enum(['MATCHED', 'NOT_MATCHED']),
+    serial_match_status: z.enum(['MATCHED', 'NOT_MATCHED', 'NOT_APPLICABLE']),
+    received_quantity: z.number().int().min(0, 'Quantity cannot be negative'),
+    quantity_status: z.enum(['MATCHED', 'SHORT', 'EXCESS']),
+    condition_status: z.enum(['GOOD', 'DAMAGED', 'FAULTY', 'OTHER']),
+    verification_result: z.enum(['VERIFIED', 'DISCREPANCY', 'SHORT', 'EXCEPTION']),
+    discrepancy_reason: z.string().trim().optional().or(z.literal('')),
+    remarks: z.string().trim().optional().or(z.literal('')),
+  })
+  .superRefine((val, ctx) => {
+    if (val.item_match_status === 'NOT_MATCHED') {
+      if (val.verification_result === 'VERIFIED') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['verification_result'],
+          message: 'Cannot mark VERIFIED when item identity does not match',
+        });
+      }
+      if (!val.discrepancy_reason || val.discrepancy_reason.trim().length < 3) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['discrepancy_reason'],
+          message: 'Discrepancy reason is required when item does not match',
+        });
+      }
+    }
+
+    if (val.serial_match_status === 'NOT_MATCHED') {
+      if (val.verification_result === 'VERIFIED') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['verification_result'],
+          message: 'Cannot mark VERIFIED when serial number does not match',
+        });
+      }
+      if (!val.discrepancy_reason || val.discrepancy_reason.trim().length < 3) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['discrepancy_reason'],
+          message: 'Discrepancy reason is required when serial number does not match',
+        });
+      }
+    }
+
+    if (val.quantity_status !== 'MATCHED') {
+      if (val.verification_result === 'VERIFIED') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['verification_result'],
+          message: `Cannot mark VERIFIED when quantity is ${val.quantity_status}`,
+        });
+      }
+      if (!val.discrepancy_reason || val.discrepancy_reason.trim().length < 3) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['discrepancy_reason'],
+          message: 'Discrepancy reason is required when received quantity differs from requested',
+        });
+      }
+    }
+
+    if (val.condition_status !== 'GOOD') {
+      if (val.verification_result === 'VERIFIED') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['verification_result'],
+          message: `Item in '${val.condition_status}' condition cannot be verified as normal test item`,
+        });
+      }
+      if (
+        (!val.discrepancy_reason || val.discrepancy_reason.trim().length < 3) &&
+        (!val.remarks || val.remarks.trim().length < 3)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['discrepancy_reason'],
+          message: 'Condition details must be documented in discrepancy reason or remarks',
+        });
+      }
+    }
+  });
+
+export type ItemVerificationFormValues = z.infer<typeof itemVerificationFormSchema>;
+
+export const uploadDocumentFormSchema = z.object({
+  document_type: z.enum([
+    'COLLECTION_PROOF',
+    'RECEIPT_PROOF',
+    'PREVIOUS_CERTIFICATE',
+    'VERIFICATION_PROOF',
+    'OTHER',
+  ]),
+  mandatory: z.boolean().default(false),
+  item_id: z.string().optional().or(z.literal('')),
+});
+
+export type UploadDocumentFormValues = z.infer<typeof uploadDocumentFormSchema>;
+

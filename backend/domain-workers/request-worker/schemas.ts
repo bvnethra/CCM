@@ -45,8 +45,8 @@ export const UpdateCalibrationRequestSchema = z.object({
 });
 
 export const UpdateCalibrationRequestStatusSchema = z.object({
-  status: z.enum(['CREATED', 'COLLECTED', 'ON_HOLD', 'CANCELLED'], {
-    errorMap: () => ({ message: "Status must be 'CREATED', 'COLLECTED', 'ON_HOLD', or 'CANCELLED'" }),
+  status: z.enum(['CREATED', 'COLLECTED', 'LAB_QUEUE', 'VERIFICATION', 'ON_HOLD', 'CANCELLED'], {
+    errorMap: () => ({ message: "Status must be 'CREATED', 'COLLECTED', 'LAB_QUEUE', 'VERIFICATION', 'ON_HOLD', or 'CANCELLED'" }),
   }),
   remarks: z.string().optional().nullable(),
 });

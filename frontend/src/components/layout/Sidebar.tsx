@@ -13,6 +13,8 @@ import {
   Factory,
   Package,
   ClipboardList,
+  FlaskConical,
+  FileCheck2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
@@ -75,6 +77,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Calibration Requests',
           icon: <ClipboardList className="w-4 h-4" />,
           badge: 'Step 6',
+        },
+        {
+          id: 'lab-queue',
+          label: 'Lab Queue & Intake',
+          icon: <FlaskConical className="w-4 h-4" />,
+          badge: 'Step 7',
+        },
+        {
+          id: 'lab-verification',
+          label: 'Item Verification',
+          icon: <FileCheck2 className="w-4 h-4" />,
+          badge: 'Step 8',
         },
       ],
     },

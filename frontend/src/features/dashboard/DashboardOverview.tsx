@@ -19,6 +19,8 @@ import {
   Factory,
   Package,
   ClipboardList,
+  FlaskConical,
+  FileCheck2,
 } from 'lucide-react';
 
 export interface DashboardOverviewProps {
@@ -37,7 +39,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
           <div>
             <div className="flex items-center gap-2">
               <Badge variant="info" size="sm">
-                Step 1, 2, 3, 4, 5 & 6: Foundation + Auth/RBAC + Masters + Calibration Requests
+                Step 1–8: Foundation + Auth/RBAC + Masters + Requests + Lab Queue + Item Verification
               </Badge>
               <Badge variant="success" size="sm">
                 PostgreSQL RLS Active
@@ -55,9 +57,25 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
 
           <div className="flex items-center gap-2.5 flex-wrap">
             <Button
+              onClick={() => onNavigate('lab-verification')}
+              size="sm"
+              leftIcon={<FileCheck2 className="w-4 h-4 text-white" />}
+            >
+              Verification (Step 8)
+            </Button>
+            <Button
+              onClick={() => onNavigate('lab-queue')}
+              size="sm"
+              variant="outline"
+              leftIcon={<FlaskConical className="w-4 h-4 text-slate-600" />}
+            >
+              Lab Queue
+            </Button>
+            <Button
               onClick={() => onNavigate('calibration-requests')}
               size="sm"
-              leftIcon={<ClipboardList className="w-4 h-4" />}
+              variant="outline"
+              leftIcon={<ClipboardList className="w-4 h-4 text-slate-600" />}
             >
               Requests
             </Button>

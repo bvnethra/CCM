@@ -16,6 +16,17 @@ import {
   CalibrationRequestStatus,
   CalibrationRequestPriority,
   ItemAvailability,
+  LabRequestAssignment,
+  RequestStatusHistory,
+  Verification,
+  DocumentItem,
+  VerificationResult,
+  ItemMatchStatus,
+  SerialMatchStatus,
+  QuantityStatus,
+  ConditionStatus,
+  DocumentType,
+  VerificationQueueItem,
 } from '../types';
 import {
   initialTenants,
@@ -31,6 +42,10 @@ import {
   initialItems,
   initialCalibrationRequests,
   initialRequestItems,
+  initialLabAssignments,
+  initialStatusHistory,
+  initialVerifications,
+  initialDocuments,
 } from './mockData';
 import { supabase, isSupabaseConfigured } from './supabase';
 
@@ -46,6 +61,10 @@ class MemoryStore {
   items: ItemMaster[] = [...initialItems];
   calibrationRequests: CalibrationRequest[] = [...initialCalibrationRequests];
   requestItems: RequestItem[] = [...initialRequestItems];
+  labAssignments: LabRequestAssignment[] = [...initialLabAssignments];
+  statusHistory: RequestStatusHistory[] = [...initialStatusHistory];
+  verifications: Verification[] = [...initialVerifications];
+  documents: DocumentItem[] = [...initialDocuments];
   auditLogs: AuditLog[] = [...initialAuditLogs];
   profiles: UserProfile[] = [...demoProfiles];
   roles: Role[] = [...initialRoles];
@@ -1804,6 +1823,533 @@ export const apiClient = {
   },
 
   // ----------------------------------------------------
+  // LAB QUEUE & INTAKE (STEP 7)
+  // ----------------------------------------------------
+  async getLabQueue(
+    tenantId: string,
+    params?: {
+      status?: string;
+      priority?: string;
+      clientId?: string;
+      assignedTo?: string;
+      search?: string;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+      page?: number;
+      pageSize?: number;
+    }
+  ): Promise<{
+    requests: CalibrationRequest[];
+    metrics: {
+      total_queue: number;
+      urgent: number;
+      unassigned: number;
+      assigned: number;
+      on_hold: number;
+    };
+    total: number;
+  }> {
+    let requests = memoryDb.calibrationRequests
+      .filter((r) => r.tenant_id === tenantId)
+      .map((r) => {
+        const items = memoryDb.requestItems.filter((ri) => ri.request_id === r.id);
+        const activeAssignment = memoryDb.labAssignments.find(
+          (a) => a.request_id === r.id && a.status === 'ACTIVE'
+        ) || null;
+        const assignedUser = activeAssignment
+          ? memoryDb.profiles.find((p) => p.id === activeAssignment.assigned_to)
+          : null;
+        const currentAssignment = activeAssignment
+          ? {
+              ...activeAssignment,
+              assigned_to_user: assignedUser
+                ? {
+                    id: assignedUser.id,
+                    full_name: assignedUser.full_name,
+                    email: assignedUser.email,
+                    role: assignedUser.role,
+                  }
+                : null,
+            }
+          : null;
+
+        return {
+          ...r,
+          items,
+          items_count: items.reduce((acc, ri) => acc + (ri.requested_quantity || 1), 0),
+          available_items_count: items.filter((ri) => ri.item_available === 'YES').length,
+          unavailable_items_count: items.filter((ri) => ri.item_available === 'NO').length,
+          current_assignment: currentAssignment,
+        };
+      });
+
+    // Default to queue statuses (LAB_QUEUE, VERIFICATION, ON_HOLD)
+    if (params?.status && params.status !== 'ALL') {
+      requests = requests.filter((r) => r.status === params.status);
+    } else {
+      requests = requests.filter((r) => ['LAB_QUEUE', 'VERIFICATION', 'ON_HOLD'].includes(r.status));
+    }
+
+    if (params?.priority && params.priority !== 'ALL') {
+      requests = requests.filter((r) => r.priority === params.priority);
+    }
+
+    if (params?.clientId && params.clientId !== 'ALL') {
+      requests = requests.filter((r) => r.client_id === params.clientId);
+    }
+
+    if (params?.assignedTo === 'UNASSIGNED') {
+      requests = requests.filter((r) => !r.current_assignment);
+    } else if (params?.assignedTo && params.assignedTo !== 'ALL') {
+      requests = requests.filter((r) => r.current_assignment?.assigned_to === params.assignedTo);
+    }
+
+    if (params?.search && typeof params.search === 'string' && params.search.trim()) {
+      const q = params.search.toLowerCase();
+      requests = requests.filter(
+        (r) =>
+          r.request_number.toLowerCase().includes(q) ||
+          r.client?.client_name?.toLowerCase().includes(q) ||
+          r.client?.client_code?.toLowerCase().includes(q) ||
+          r.current_assignment?.assigned_to_user?.full_name?.toLowerCase().includes(q) ||
+          (r.items || []).some(
+            (it) =>
+              it.item?.item_code?.toLowerCase().includes(q) ||
+              it.item?.item_name?.toLowerCase().includes(q) ||
+              it.item?.serial_number?.toLowerCase().includes(q)
+          )
+      );
+    }
+
+    // Compute Metrics
+    const total_queue = requests.length;
+    const urgent = requests.filter((r) => r.priority === 'URGENT').length;
+    const unassigned = requests.filter((r) => !r.current_assignment).length;
+    const assigned = requests.filter((r) => !!r.current_assignment).length;
+    const on_hold = requests.filter((r) => r.status === 'ON_HOLD').length;
+
+    // Sorting
+    const sortBy = params?.sortBy || 'created_at';
+    const sortOrder = params?.sortOrder || 'desc';
+    requests.sort((a: any, b: any) => {
+      let aVal = a[sortBy] || '';
+      let bVal = b[sortBy] || '';
+      if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    const page = Math.max(1, params?.page || 1);
+    const pageSize = Math.max(1, params?.pageSize || 20);
+    const paginated = requests.slice((page - 1) * pageSize, page * pageSize);
+
+    return {
+      requests: paginated,
+      metrics: {
+        total_queue,
+        urgent,
+        unassigned,
+        assigned,
+        on_hold,
+      },
+      total: requests.length,
+    };
+  },
+
+  async getLabRequestDetails(requestId: string, tenantId: string): Promise<CalibrationRequest> {
+    const request = memoryDb.calibrationRequests.find((r) => r.id === requestId && r.tenant_id === tenantId);
+    if (!request) throw new Error('Calibration request not found in lab queue');
+
+    const items = memoryDb.requestItems
+      .filter((ri) => ri.request_id === requestId)
+      .map((ri) => ({
+        ...ri,
+        item: memoryDb.items.find((it) => it.id === ri.item_id) || ri.item,
+        checked_by_user: memoryDb.profiles.find((p) => p.id === ri.availability_checked_by) || null,
+      }));
+
+    const assignments = memoryDb.labAssignments
+      .filter((a) => a.request_id === requestId && a.tenant_id === tenantId)
+      .map((a) => {
+        const assignedTo = memoryDb.profiles.find((p) => p.id === a.assigned_to);
+        const assignedBy = memoryDb.profiles.find((p) => p.id === a.assigned_by);
+        return {
+          ...a,
+          assigned_to_user: assignedTo
+            ? { id: assignedTo.id, full_name: assignedTo.full_name, email: assignedTo.email, role: assignedTo.role }
+            : null,
+          assigned_by_user: assignedBy
+            ? { id: assignedBy.id, full_name: assignedBy.full_name, email: assignedBy.email, role: assignedBy.role }
+            : null,
+        };
+      })
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    const activeAssignment = assignments.find((a) => a.status === 'ACTIVE') || null;
+
+    const statusHistory = memoryDb.statusHistory
+      .filter((sh) => sh.request_id === requestId && sh.tenant_id === tenantId)
+      .map((sh) => {
+        const changedBy = memoryDb.profiles.find((p) => p.id === sh.changed_by);
+        return {
+          ...sh,
+          changed_by_user: changedBy
+            ? { id: changedBy.id, full_name: changedBy.full_name, email: changedBy.email, role: changedBy.role }
+            : null,
+        };
+      })
+      .sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime());
+
+    return {
+      ...request,
+      items,
+      items_count: items.reduce((acc, ri) => acc + (ri.requested_quantity || 1), 0),
+      available_items_count: items.filter((ri) => ri.item_available === 'YES').length,
+      unavailable_items_count: items.filter((ri) => ri.item_available === 'NO').length,
+      current_assignment: activeAssignment,
+      assignments,
+      status_history: statusHistory,
+    };
+  },
+
+  async moveToLabQueue(
+    requestId: string,
+    tenantId: string,
+    remarks?: string | null,
+    userId?: string
+  ): Promise<CalibrationRequest> {
+    const index = memoryDb.calibrationRequests.findIndex((r) => r.id === requestId && r.tenant_id === tenantId);
+    if (index === -1) throw new Error('Calibration request not found');
+
+    const existing = memoryDb.calibrationRequests[index];
+    if (existing.status === 'CANCELLED') throw new Error('Cancelled request cannot enter the Lab Queue');
+    if (existing.status === 'LAB_QUEUE' || existing.status === 'VERIFICATION') {
+      throw new Error(`Request is already in ${existing.status} stage`);
+    }
+
+    const items = memoryDb.requestItems.filter((ri) => ri.request_id === requestId);
+    if (items.length === 0) throw new Error('Request must have at least one line item before entering Lab Queue');
+
+    const previousStatus = existing.status;
+    const newStatus: CalibrationRequestStatus = 'LAB_QUEUE';
+    const timestamp = new Date().toISOString();
+    const effectiveUserId = userId || 'usr-super-admin';
+
+    const updated: CalibrationRequest = {
+      ...existing,
+      status: newStatus,
+      updated_at: timestamp,
+    };
+
+    memoryDb.calibrationRequests[index] = updated;
+
+    // Record status history
+    memoryDb.statusHistory.unshift({
+      id: `sh-${Date.now()}`,
+      tenant_id: tenantId,
+      request_id: requestId,
+      previous_status: previousStatus,
+      new_status: newStatus,
+      changed_by: effectiveUserId,
+      changed_at: timestamp,
+      remarks: remarks || 'Transferred to Lab Queue for technician assignment and verification',
+      created_at: timestamp,
+    });
+
+    memoryDb.addAudit(tenantId, 'MOVE_TO_LAB_QUEUE', 'calibration_requests', requestId, {
+      request_number: existing.request_number,
+      previous_status: previousStatus,
+      new_status: newStatus,
+      remarks,
+    });
+
+    memoryDb.notify();
+    return updated;
+  },
+
+  async assignLabRequest(
+    requestId: string,
+    tenantId: string,
+    assignedToUserId: string,
+    remarks?: string | null,
+    userId?: string
+  ): Promise<LabRequestAssignment> {
+    const request = memoryDb.calibrationRequests.find((r) => r.id === requestId && r.tenant_id === tenantId);
+    if (!request) throw new Error('Calibration request not found');
+    if (request.status === 'CANCELLED') throw new Error('Cannot assign a cancelled request');
+
+    const targetUser = memoryDb.profiles.find((p) => p.id === assignedToUserId && p.tenant_id === tenantId);
+    if (!targetUser) throw new Error('Target technician does not exist in this tenant');
+    if (targetUser.status !== 'active') throw new Error('Cannot assign to an inactive technician');
+
+    // Mark previous active assignment as REASSIGNED if present
+    const existingActive = memoryDb.labAssignments.find(
+      (a) => a.request_id === requestId && a.tenant_id === tenantId && a.status === 'ACTIVE'
+    );
+    if (existingActive) {
+      existingActive.status = 'REASSIGNED';
+      existingActive.updated_at = new Date().toISOString();
+    }
+
+    const timestamp = new Date().toISOString();
+    const effectiveUserId = userId || 'usr-super-admin';
+
+    const newAssignment: LabRequestAssignment = {
+      id: `asgn-${Date.now()}`,
+      tenant_id: tenantId,
+      request_id: requestId,
+      assigned_to: assignedToUserId,
+      assigned_by: effectiveUserId,
+      assigned_at: timestamp,
+      status: 'ACTIVE',
+      remarks: remarks || null,
+      created_at: timestamp,
+      updated_at: timestamp,
+      assigned_to_user: {
+        id: targetUser.id,
+        full_name: targetUser.full_name,
+        email: targetUser.email,
+        role: targetUser.role,
+      },
+    };
+
+    memoryDb.labAssignments.unshift(newAssignment);
+
+    memoryDb.addAudit(tenantId, 'LAB_ASSIGN_REQUEST', 'lab_request_assignments', newAssignment.id, {
+      request_number: request.request_number,
+      assigned_to: targetUser.full_name,
+      assigned_to_id: targetUser.id,
+      remarks,
+    });
+
+    memoryDb.notify();
+    return newAssignment;
+  },
+
+  async reassignLabRequest(
+    requestId: string,
+    tenantId: string,
+    newAssignedToUserId: string,
+    remarks: string,
+    userId?: string
+  ): Promise<LabRequestAssignment> {
+    const request = memoryDb.calibrationRequests.find((r) => r.id === requestId && r.tenant_id === tenantId);
+    if (!request) throw new Error('Calibration request not found');
+
+    const newAssignee = memoryDb.profiles.find((p) => p.id === newAssignedToUserId && p.tenant_id === tenantId);
+    if (!newAssignee) throw new Error('Selected technician does not exist in this tenant');
+
+    const prevAssignment = memoryDb.labAssignments.find(
+      (a) => a.request_id === requestId && a.tenant_id === tenantId && a.status === 'ACTIVE'
+    );
+    if (prevAssignment) {
+      prevAssignment.status = 'REASSIGNED';
+      prevAssignment.remarks = `Reassigned: ${remarks}`;
+      prevAssignment.updated_at = new Date().toISOString();
+    }
+
+    const timestamp = new Date().toISOString();
+    const effectiveUserId = userId || 'usr-super-admin';
+
+    const newAssignment: LabRequestAssignment = {
+      id: `asgn-${Date.now()}`,
+      tenant_id: tenantId,
+      request_id: requestId,
+      assigned_to: newAssignedToUserId,
+      assigned_by: effectiveUserId,
+      assigned_at: timestamp,
+      status: 'ACTIVE',
+      remarks,
+      created_at: timestamp,
+      updated_at: timestamp,
+      assigned_to_user: {
+        id: newAssignee.id,
+        full_name: newAssignee.full_name,
+        email: newAssignee.email,
+        role: newAssignee.role,
+      },
+    };
+
+    memoryDb.labAssignments.unshift(newAssignment);
+
+    memoryDb.addAudit(tenantId, 'LAB_REASSIGN_REQUEST', 'lab_request_assignments', newAssignment.id, {
+      request_number: request.request_number,
+      new_assigned_to: newAssignee.full_name,
+      reassignment_reason: remarks,
+    });
+
+    memoryDb.notify();
+    return newAssignment;
+  },
+
+  async acceptLabRequest(requestId: string, tenantId: string, userId: string): Promise<void> {
+    const request = memoryDb.calibrationRequests.find((r) => r.id === requestId && r.tenant_id === tenantId);
+    if (!request) throw new Error('Calibration request not found');
+
+    const activeAssign = memoryDb.labAssignments.find(
+      (a) => a.request_id === requestId && a.tenant_id === tenantId && a.status === 'ACTIVE'
+    );
+
+    const user = memoryDb.profiles.find((p) => p.id === userId);
+    const isAssigned = activeAssign && activeAssign.assigned_to === userId;
+    const isSuperOrAdmin = user && (user.role === 'tenant_admin' || user.role === 'super_admin' || user.role === 'manager');
+
+    if (!isAssigned && !isSuperOrAdmin) {
+      throw new Error('Only the assigned technician or an authorized manager can accept this request');
+    }
+
+    memoryDb.addAudit(tenantId, 'LAB_ACCEPT_REQUEST', 'calibration_requests', requestId, {
+      request_number: request.request_number,
+      accepted_by: user?.full_name || userId,
+      accepted_at: new Date().toISOString(),
+    });
+
+    memoryDb.notify();
+  },
+
+  async startVerification(
+    requestId: string,
+    tenantId: string,
+    userId: string
+  ): Promise<CalibrationRequest> {
+    const index = memoryDb.calibrationRequests.findIndex((r) => r.id === requestId && r.tenant_id === tenantId);
+    if (index === -1) throw new Error('Calibration request not found');
+
+    const existing = memoryDb.calibrationRequests[index];
+    if (existing.status !== 'LAB_QUEUE' && existing.status !== 'ON_HOLD') {
+      throw new Error(`Invalid transition: Request must be in LAB_QUEUE to start verification (currently: ${existing.status})`);
+    }
+
+    const previousStatus = existing.status;
+    const newStatus: CalibrationRequestStatus = 'VERIFICATION';
+    const timestamp = new Date().toISOString();
+
+    const updated: CalibrationRequest = {
+      ...existing,
+      status: newStatus,
+      updated_at: timestamp,
+    };
+
+    memoryDb.calibrationRequests[index] = updated;
+
+    memoryDb.statusHistory.unshift({
+      id: `sh-${Date.now()}`,
+      tenant_id: tenantId,
+      request_id: requestId,
+      previous_status: previousStatus,
+      new_status: newStatus,
+      changed_by: userId,
+      changed_at: timestamp,
+      remarks: 'Intake verified and ready for laboratory verification stage',
+      created_at: timestamp,
+    });
+
+    memoryDb.addAudit(tenantId, 'LAB_START_VERIFICATION', 'calibration_requests', requestId, {
+      request_number: existing.request_number,
+      previous_status: previousStatus,
+      new_status: newStatus,
+    });
+
+    memoryDb.notify();
+    return updated;
+  },
+
+  async holdLabRequest(
+    requestId: string,
+    tenantId: string,
+    holdReason: string,
+    userId: string
+  ): Promise<CalibrationRequest> {
+    if (!holdReason || holdReason.trim().length < 3) {
+      throw new Error('Hold reason is mandatory (at least 3 characters)');
+    }
+
+    const index = memoryDb.calibrationRequests.findIndex((r) => r.id === requestId && r.tenant_id === tenantId);
+    if (index === -1) throw new Error('Calibration request not found');
+
+    const existing = memoryDb.calibrationRequests[index];
+    if (existing.status === 'CANCELLED') throw new Error('Cannot put a cancelled request on hold');
+
+    const previousStatus = existing.status;
+    const newStatus: CalibrationRequestStatus = 'ON_HOLD';
+    const timestamp = new Date().toISOString();
+
+    const updated: CalibrationRequest = {
+      ...existing,
+      status: newStatus,
+      remarks: holdReason.trim(),
+      updated_at: timestamp,
+    };
+
+    memoryDb.calibrationRequests[index] = updated;
+
+    memoryDb.statusHistory.unshift({
+      id: `sh-${Date.now()}`,
+      tenant_id: tenantId,
+      request_id: requestId,
+      previous_status: previousStatus,
+      new_status: newStatus,
+      changed_by: userId,
+      changed_at: timestamp,
+      remarks: holdReason.trim(),
+      created_at: timestamp,
+    });
+
+    memoryDb.addAudit(tenantId, 'LAB_HOLD_REQUEST', 'calibration_requests', requestId, {
+      request_number: existing.request_number,
+      previous_status: previousStatus,
+      new_status: newStatus,
+      hold_reason: holdReason.trim(),
+    });
+
+    memoryDb.notify();
+    return updated;
+  },
+
+  async getTenantLabUsers(tenantId: string): Promise<UserProfile[]> {
+    return memoryDb.profiles.filter(
+      (p) =>
+        p.tenant_id === tenantId &&
+        ['lab_user', 'tenant_admin', 'manager', 'org_admin'].includes(p.role) &&
+        p.status === 'active'
+    );
+  },
+
+  async getLabAssignments(requestId: string, tenantId: string): Promise<LabRequestAssignment[]> {
+    return memoryDb.labAssignments
+      .filter((a) => a.request_id === requestId && a.tenant_id === tenantId)
+      .map((a) => {
+        const assignedTo = memoryDb.profiles.find((p) => p.id === a.assigned_to);
+        const assignedBy = memoryDb.profiles.find((p) => p.id === a.assigned_by);
+        return {
+          ...a,
+          assigned_to_user: assignedTo
+            ? { id: assignedTo.id, full_name: assignedTo.full_name, email: assignedTo.email, role: assignedTo.role }
+            : null,
+          assigned_by_user: assignedBy
+            ? { id: assignedBy.id, full_name: assignedBy.full_name, email: assignedBy.email, role: assignedBy.role }
+            : null,
+        };
+      })
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  },
+
+  async getRequestStatusHistory(requestId: string, tenantId: string): Promise<RequestStatusHistory[]> {
+    return memoryDb.statusHistory
+      .filter((sh) => sh.request_id === requestId && sh.tenant_id === tenantId)
+      .map((sh) => {
+        const changedBy = memoryDb.profiles.find((p) => p.id === sh.changed_by);
+        return {
+          ...sh,
+          changed_by_user: changedBy
+            ? { id: changedBy.id, full_name: changedBy.full_name, email: changedBy.email, role: changedBy.role }
+            : null,
+        };
+      })
+      .sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime());
+  },
+
+  // ----------------------------------------------------
   // AUDIT LOGS
   // ----------------------------------------------------
   async getAuditLogs(tenantId: string, isSuperAdmin: boolean): Promise<AuditLog[]> {
@@ -1835,5 +2381,411 @@ export const apiClient = {
         },
       };
     }
+  },
+  // ----------------------------------------------------
+  // STEP 8: ITEM VERIFICATION + PROOF + MANDATORY DOCUMENTS
+  // ----------------------------------------------------
+  async getVerificationQueue(
+    tenantId: string,
+    options?: { search?: string; status?: string }
+  ): Promise<VerificationQueueItem[]> {
+    // If super admin or matching tenant
+    const requests = memoryDb.calibrationRequests.filter(
+      (r) => (r.tenant_id === tenantId || tenantId === 'all') && (options?.status ? r.status === options.status : ['VERIFICATION', 'LAB_QUEUE', 'VERIFIED'].includes(r.status))
+    );
+
+    const queueItems: VerificationQueueItem[] = requests.map((req) => {
+      const items = memoryDb.requestItems.filter((ri) => ri.request_id === req.id);
+      const reqVerifications = memoryDb.verifications.filter(
+        (v) => v.request_id === req.id && (tenantId === 'all' || v.tenant_id === req.tenant_id)
+      );
+      const reqDocs = memoryDb.documents.filter(
+        (d) => d.request_id === req.id && (tenantId === 'all' || d.tenant_id === req.tenant_id)
+      );
+
+      const totalItems = items.length;
+      const verifiedItems = items.filter((ri) => reqVerifications.some((v) => v.request_item_id === ri.id)).length;
+      const discrepantItems = reqVerifications.filter((v) => v.verification_result === 'DISCREPANCY' || v.verification_result === 'SHORT').length;
+      const mandatoryDocs = reqDocs.filter((d) => d.mandatory).length;
+      const canComplete = totalItems > 0 && verifiedItems === totalItems && mandatoryDocs > 0;
+
+      const client = memoryDb.clients.find((c) => c.id === req.client_id) || req.client || null;
+      const org = memoryDb.organizations.find((o) => o.id === req.organization_id) || req.organization || null;
+
+      return {
+        id: req.id,
+        tenant_id: req.tenant_id,
+        request_number: req.request_number,
+        priority: req.priority,
+        status: req.status,
+        collection_date: req.collection_date,
+        client_name: client?.client_name || 'Unknown Client',
+        organization_name: org?.name || 'Central Metrology',
+        total_items: totalItems,
+        verified_items: verifiedItems,
+        discrepant_items: discrepantItems,
+        mandatory_documents_count: mandatoryDocs,
+        total_documents_count: reqDocs.length,
+        can_complete: canComplete,
+        created_at: req.created_at,
+        updated_at: req.updated_at,
+      };
+    });
+
+    if (options?.search) {
+      const q = options.search.toLowerCase();
+      return queueItems.filter(
+        (item) =>
+          item.request_number.toLowerCase().includes(q) ||
+          item.client_name.toLowerCase().includes(q) ||
+          item.organization_name.toLowerCase().includes(q)
+      );
+    }
+
+    return queueItems.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+  },
+
+  async getRequestVerificationDetails(requestId: string, tenantId: string) {
+    const request = memoryDb.calibrationRequests.find(
+      (r) => r.id === requestId && (tenantId === 'all' || r.tenant_id === tenantId)
+    );
+    if (!request) {
+      throw new Error(`Calibration request not found: ${requestId}`);
+    }
+
+    const items = memoryDb.requestItems.filter((ri) => ri.request_id === requestId);
+    const verifications = memoryDb.verifications.filter((v) => v.request_id === requestId);
+    const documents = memoryDb.documents
+      .filter((d) => d.request_id === requestId)
+      .map((doc) => {
+        const uploader = memoryDb.profiles.find((p) => p.id === doc.uploaded_by);
+        return {
+          ...doc,
+          uploaded_by_user: uploader
+            ? { id: uploader.id, full_name: uploader.full_name, email: uploader.email, role: uploader.role }
+            : null,
+        };
+      })
+      .sort((a, b) => b.version - a.version);
+
+    const client = memoryDb.clients.find((c) => c.id === request.client_id) || request.client || null;
+    const org = memoryDb.organizations.find((o) => o.id === request.organization_id) || request.organization || null;
+    const subOrg = memoryDb.subOrganizations.find((s) => s.id === request.sub_org_id) || request.sub_organization || null;
+    const agent = memoryDb.profiles.find((p) => p.id === request.collection_agent_id) || request.collection_agent || null;
+
+    const itemsWithDetails = items.map((item) => {
+      const itemMaster = memoryDb.items.find((im) => im.id === item.item_id) || item.item;
+      const verification = verifications.find((v) => v.request_item_id === item.id) || null;
+      let verifier = null;
+      if (verification) {
+        const p = memoryDb.profiles.find((pr) => pr.id === verification.verified_by);
+        if (p) {
+          verifier = { id: p.id, full_name: p.full_name, email: p.email, role: p.role };
+        }
+      }
+
+      return {
+        ...item,
+        item: itemMaster,
+        verification: verification ? { ...verification, verified_by_user: verifier } : null,
+      };
+    });
+
+    const totalItems = itemsWithDetails.length;
+    const verifiedItems = itemsWithDetails.filter((i) => i.verification !== null).length;
+    const mandatoryDocs = documents.filter((d) => d.mandatory).length;
+    const canComplete = totalItems > 0 && verifiedItems === totalItems && mandatoryDocs > 0;
+
+    return {
+      request: {
+        ...request,
+        client,
+        organization: org,
+        sub_organization: subOrg,
+        collection_agent: agent,
+      },
+      items: itemsWithDetails,
+      documents,
+      verifications,
+      stats: {
+        total_items: totalItems,
+        verified_items: verifiedItems,
+        pending_items: totalItems - verifiedItems,
+        mandatory_documents_count: mandatoryDocs,
+        total_documents_count: documents.length,
+        can_complete: canComplete,
+      },
+    };
+  },
+
+  async submitItemVerification(data: {
+    tenantId: string;
+    requestId: string;
+    requestItemId: string;
+    verifiedBy: string;
+    itemMatchStatus: ItemMatchStatus;
+    serialMatchStatus: SerialMatchStatus;
+    receivedQuantity: number;
+    quantityStatus: QuantityStatus;
+    conditionStatus: ConditionStatus;
+    verificationResult: VerificationResult;
+    discrepancyReason?: string | null;
+    remarks?: string | null;
+  }): Promise<Verification> {
+    const existingIndex = memoryDb.verifications.findIndex(
+      (v) => v.tenant_id === data.tenantId && v.request_item_id === data.requestItemId
+    );
+
+    const now = new Date().toISOString();
+    const verifier = memoryDb.profiles.find((p) => p.id === data.verifiedBy);
+
+    const verificationRecord: Verification = {
+      id: existingIndex >= 0 ? memoryDb.verifications[existingIndex].id : `ver-${Date.now()}`,
+      tenant_id: data.tenantId,
+      request_id: data.requestId,
+      request_item_id: data.requestItemId,
+      verified_by: data.verifiedBy,
+      verified_at: now,
+      item_match_status: data.itemMatchStatus,
+      serial_match_status: data.serialMatchStatus,
+      received_quantity: data.receivedQuantity,
+      quantity_status: data.quantityStatus,
+      condition_status: data.conditionStatus,
+      verification_result: data.verificationResult,
+      discrepancy_reason: data.discrepancyReason || null,
+      remarks: data.remarks || null,
+      created_at: existingIndex >= 0 ? memoryDb.verifications[existingIndex].created_at : now,
+      updated_at: now,
+      verified_by_user: verifier
+        ? { id: verifier.id, full_name: verifier.full_name, email: verifier.email, role: verifier.role }
+        : null,
+    };
+
+    if (existingIndex >= 0) {
+      memoryDb.verifications[existingIndex] = verificationRecord;
+    } else {
+      memoryDb.verifications.push(verificationRecord);
+    }
+
+    // Add audit log
+    memoryDb.auditLogs.unshift({
+      id: `audit-${Date.now()}`,
+      tenant_id: data.tenantId,
+      user_id: data.verifiedBy,
+      action: 'VERIFICATION_SUBMITTED',
+      resource_type: 'verifications',
+      resource_id: verificationRecord.id,
+      new_values: {
+        request_id: data.requestId,
+        request_item_id: data.requestItemId,
+        result: data.verificationResult,
+        condition: data.conditionStatus,
+      },
+      ip_address: '127.0.0.1',
+      created_at: now,
+    });
+
+    return verificationRecord;
+  },
+
+  async completeRequestVerification(
+    requestId: string,
+    tenantId: string,
+    completedBy: string,
+    remarks?: string
+  ): Promise<CalibrationRequest> {
+    const request = memoryDb.calibrationRequests.find(
+      (r) => r.id === requestId && (tenantId === 'all' || r.tenant_id === tenantId)
+    );
+    if (!request) throw new Error('Calibration request not found');
+
+    const items = memoryDb.requestItems.filter((ri) => ri.request_id === requestId);
+    const verifications = memoryDb.verifications.filter((v) => v.request_id === requestId);
+    const documents = memoryDb.documents.filter((d) => d.request_id === requestId && d.mandatory);
+
+    if (verifications.length < items.length) {
+      throw new Error(`Cannot complete verification: Only ${verifications.length}/${items.length} items verified`);
+    }
+
+    if (documents.length === 0) {
+      throw new Error('Cannot complete verification: At least one mandatory proof document must be uploaded');
+    }
+
+    const now = new Date().toISOString();
+    const prevStatus = request.status;
+    request.status = 'VERIFIED';
+    request.updated_at = now;
+
+    // Record status history
+    const user = memoryDb.profiles.find((p) => p.id === completedBy);
+    memoryDb.statusHistory.unshift({
+      id: `sh-${Date.now()}`,
+      tenant_id: request.tenant_id,
+      request_id: requestId,
+      previous_status: prevStatus,
+      new_status: 'VERIFIED',
+      changed_by: completedBy,
+      changed_at: now,
+      remarks: remarks || 'All items verified and mandatory proof documents validated.',
+      created_at: now,
+      changed_by_user: user
+        ? { id: user.id, full_name: user.full_name, email: user.email, role: user.role }
+        : null,
+    });
+
+    // Add audit log
+    memoryDb.auditLogs.unshift({
+      id: `audit-${Date.now()}`,
+      tenant_id: request.tenant_id,
+      user_id: completedBy,
+      action: 'REQUEST_VERIFIED',
+      resource_type: 'calibration_requests',
+      resource_id: requestId,
+      old_values: { status: prevStatus },
+      new_values: { status: 'VERIFIED', remarks },
+      ip_address: '127.0.0.1',
+      created_at: now,
+    });
+
+    return request;
+  },
+
+  async getUploadUrl(data: {
+    tenantId: string;
+    requestId: string;
+    itemId?: string;
+    requestItemId?: string;
+    fileName: string;
+    fileSize: number;
+    mimeType: string;
+    documentType: DocumentType;
+    mandatory?: boolean;
+  }) {
+    const timestamp = Date.now();
+    const safeName = data.fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const storageReference = `tenants/${data.tenantId}/requests/${data.requestId}/${data.documentType}_${timestamp}_${safeName}`;
+
+    return {
+      uploadUrl: `https://mock-r2-storage.ccm.internal/upload?key=${encodeURIComponent(storageReference)}`,
+      storageReference,
+      fileName: data.fileName,
+      mimeType: data.mimeType,
+      fileSize: data.fileSize,
+      documentType: data.documentType,
+      mandatory: data.mandatory ?? false,
+    };
+  },
+
+  async confirmDocumentUpload(data: {
+    tenantId: string;
+    requestId: string;
+    itemId?: string;
+    requestItemId?: string;
+    documentType: DocumentType;
+    fileName: string;
+    fileSize: number;
+    mimeType: string;
+    storageReference: string;
+    mandatory?: boolean;
+    uploadedBy: string;
+  }): Promise<DocumentItem> {
+    const existing = memoryDb.documents.filter(
+      (d) => d.tenant_id === data.tenantId && d.request_id === data.requestId && d.document_type === data.documentType
+    );
+    const nextVersion = existing.length > 0 ? Math.max(...existing.map((e) => e.version)) + 1 : 1;
+
+    const now = new Date().toISOString();
+    const uploader = memoryDb.profiles.find((p) => p.id === data.uploadedBy);
+
+    const doc: DocumentItem = {
+      id: `doc-${Date.now()}`,
+      tenant_id: data.tenantId,
+      request_id: data.requestId,
+      item_id: data.itemId || null,
+      request_item_id: data.requestItemId || null,
+      document_type: data.documentType,
+      file_name: data.fileName,
+      file_size: data.fileSize,
+      mime_type: data.mimeType,
+      storage_reference: data.storageReference,
+      mandatory: data.mandatory ?? false,
+      uploaded_by: data.uploadedBy,
+      uploaded_at: now,
+      version: nextVersion,
+      created_at: now,
+      updated_at: now,
+      uploaded_by_user: uploader
+        ? { id: uploader.id, full_name: uploader.full_name, email: uploader.email, role: uploader.role }
+        : null,
+    };
+
+    memoryDb.documents.unshift(doc);
+
+    // Audit log
+    memoryDb.auditLogs.unshift({
+      id: `audit-${Date.now()}`,
+      tenant_id: data.tenantId,
+      user_id: data.uploadedBy,
+      action: 'DOCUMENT_UPLOADED',
+      resource_type: 'documents',
+      resource_id: doc.id,
+      new_values: {
+        request_id: data.requestId,
+        file_name: data.fileName,
+        document_type: data.documentType,
+        version: nextVersion,
+        mandatory: data.mandatory,
+      },
+      ip_address: '127.0.0.1',
+      created_at: now,
+    });
+
+    return doc;
+  },
+
+  async getDocuments(tenantId: string, requestId: string, documentType?: DocumentType): Promise<DocumentItem[]> {
+    return memoryDb.documents
+      .filter((d) => (tenantId === 'all' || d.tenant_id === tenantId) && d.request_id === requestId && (!documentType || d.document_type === documentType))
+      .map((d) => {
+        const uploader = memoryDb.profiles.find((p) => p.id === d.uploaded_by);
+        return {
+          ...d,
+          uploaded_by_user: uploader
+            ? { id: uploader.id, full_name: uploader.full_name, email: uploader.email, role: uploader.role }
+            : null,
+        };
+      })
+      .sort((a, b) => b.version - a.version);
+  },
+
+  async getDocumentDownloadUrl(documentId: string, tenantId: string) {
+    const doc = memoryDb.documents.find((d) => d.id === documentId && (tenantId === 'all' || d.tenant_id === tenantId));
+    if (!doc) throw new Error('Document not found');
+    return {
+      downloadUrl: `https://storage.ccm.internal/download/${encodeURIComponent(doc.storage_reference)}?sig=mock-presigned-token`,
+      document: doc,
+    };
+  },
+
+  async deleteDocument(documentId: string, tenantId: string, deletedBy = 'usr-current') {
+    const index = memoryDb.documents.findIndex((d) => d.id === documentId && (tenantId === 'all' || d.tenant_id === tenantId));
+    if (index === 0 || index > 0) {
+      const doc = memoryDb.documents[index];
+      memoryDb.documents.splice(index, 1);
+
+      memoryDb.auditLogs.unshift({
+        id: `audit-${Date.now()}`,
+        tenant_id: doc.tenant_id,
+        user_id: deletedBy,
+        action: 'DOCUMENT_DELETED',
+        resource_type: 'documents',
+        resource_id: documentId,
+        new_values: { file_name: doc.file_name, document_type: doc.document_type },
+        ip_address: '127.0.0.1',
+        created_at: new Date().toISOString(),
+      });
+      return { success: true };
+    }
+    throw new Error('Document not found');
   },
 };

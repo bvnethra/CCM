@@ -142,8 +142,52 @@ export interface ItemMaster {
 }
 
 export type CalibrationRequestPriority = 'NORMAL' | 'URGENT';
-export type CalibrationRequestStatus = 'CREATED' | 'COLLECTED' | 'ON_HOLD' | 'CANCELLED';
+export type CalibrationRequestStatus = 'CREATED' | 'COLLECTED' | 'LAB_QUEUE' | 'VERIFICATION' | 'ON_HOLD' | 'CANCELLED';
 export type ItemAvailability = 'YES' | 'NO';
+export type LabAssignmentStatus = 'ACTIVE' | 'REASSIGNED' | 'COMPLETED';
+
+export interface LabRequestAssignment {
+  id: string;
+  tenant_id: string;
+  request_id: string;
+  assigned_to: string;
+  assigned_by: string;
+  assigned_at: string;
+  status: LabAssignmentStatus;
+  remarks?: string | null;
+  created_at: string;
+  updated_at: string;
+  assigned_to_user?: {
+    id: string;
+    full_name: string;
+    email: string;
+    role: UserRole;
+  } | null;
+  assigned_by_user?: {
+    id: string;
+    full_name: string;
+    email: string;
+    role: UserRole;
+  } | null;
+}
+
+export interface RequestStatusHistory {
+  id: string;
+  tenant_id: string;
+  request_id: string;
+  previous_status?: CalibrationRequestStatus | null;
+  new_status: CalibrationRequestStatus;
+  changed_by: string;
+  changed_at: string;
+  remarks?: string | null;
+  created_at: string;
+  changed_by_user?: {
+    id: string;
+    full_name: string;
+    email: string;
+    role: UserRole;
+  } | null;
+}
 
 export interface RequestItem {
   id: string;
@@ -197,6 +241,9 @@ export interface CalibrationRequest {
   items_count?: number;
   available_items_count?: number;
   unavailable_items_count?: number;
+  current_assignment?: LabRequestAssignment | null;
+  assignments?: LabRequestAssignment[];
+  status_history?: RequestStatusHistory[];
 }
 
 export interface UserProfile {
@@ -292,4 +339,67 @@ export interface AuthenticatedUser {
   organizationId?: string | null;
   subOrganizationId?: string | null;
   permissions: string[];
+}
+
+export type ItemMatchStatus = 'MATCHED' | 'NOT_MATCHED';
+export type SerialMatchStatus = 'MATCHED' | 'NOT_MATCHED' | 'NOT_APPLICABLE';
+export type QuantityStatus = 'MATCHED' | 'SHORT' | 'EXCESS';
+export type ConditionStatus = 'GOOD' | 'DAMAGED' | 'FAULTY' | 'OTHER';
+export type VerificationResult = 'VERIFIED' | 'DISCREPANCY' | 'SHORT' | 'EXCEPTION';
+export type DocumentType =
+  | 'COLLECTION_PROOF'
+  | 'RECEIPT_PROOF'
+  | 'PREVIOUS_CERTIFICATE'
+  | 'VERIFICATION_PROOF'
+  | 'OTHER';
+
+export interface Verification {
+  id: string;
+  tenant_id: string;
+  request_id: string;
+  request_item_id: string;
+  verified_by: string;
+  verified_at: string;
+  item_match_status: ItemMatchStatus;
+  serial_match_status: SerialMatchStatus;
+  quantity_status: QuantityStatus;
+  condition_status: ConditionStatus;
+  received_quantity: number;
+  discrepancy_reason?: string | null;
+  verification_result: VerificationResult;
+  remarks?: string | null;
+  created_at: string;
+  updated_at: string;
+  verified_by_user?: {
+    id: string;
+    full_name: string;
+    email: string;
+    role: string;
+  } | null;
+  request_item?: any;
+}
+
+export interface DocumentMetadata {
+  id: string;
+  tenant_id: string;
+  request_id: string;
+  item_id?: string | null;
+  request_item_id?: string | null;
+  document_type: DocumentType;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  storage_reference: string;
+  mandatory: boolean;
+  uploaded_by: string;
+  uploaded_at: string;
+  version: number;
+  created_at: string;
+  updated_at: string;
+  uploaded_by_user?: {
+    id: string;
+    full_name: string;
+    email: string;
+  } | null;
+  download_url?: string;
 }

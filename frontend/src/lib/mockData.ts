@@ -1,4 +1,4 @@
-import { Tenant, Organization, SubOrganization, AuditLog, UserProfile, Role, Permission, Client, Vendor, ItemMaster, CalibrationRequest, RequestItem } from '../types';
+import { Tenant, Organization, SubOrganization, AuditLog, UserProfile, Role, Permission, Client, Vendor, ItemMaster, CalibrationRequest, RequestItem, LabRequestAssignment, RequestStatusHistory, Verification, DocumentItem } from '../types';
 
 export const initialTenants: Tenant[] = [
   {
@@ -208,6 +208,23 @@ export const initialPermissions: Permission[] = [
   { id: 'p46', code: 'collection.view', name: 'View Collections', module: 'Collections', description: 'View field equipment collections' },
   { id: 'p47', code: 'collection.create', name: 'Create Collection', module: 'Collections', description: 'Record field instrument intake' },
   { id: 'p48', code: 'collection.edit', name: 'Edit Collection', module: 'Collections', description: 'Modify collection records and quantities' },
+  { id: 'p49', code: 'lab.queue.view', name: 'View Lab Queue', module: 'Lab', description: 'Access and inspect the central laboratory intake queue' },
+  { id: 'p50', code: 'lab.queue.accept', name: 'Accept Request', module: 'Lab', description: 'Accept assigned calibration requests for lab intake' },
+  { id: 'p51', code: 'lab.queue.assign', name: 'Assign Lab Tech', module: 'Lab', description: 'Assign queue requests to laboratory technicians' },
+  { id: 'p52', code: 'lab.queue.reassign', name: 'Reassign Lab Tech', module: 'Lab', description: 'Reassign queue requests to alternative technicians' },
+  { id: 'p53', code: 'lab.queue.hold', name: 'Hold Lab Request', module: 'Lab', description: 'Place requests in the lab queue on hold with mandatory reason' },
+  { id: 'p54', code: 'lab.request.view', name: 'View Lab Details', module: 'Lab', description: 'Inspect full calibration intake and metrology equipment details' },
+  { id: 'p55', code: 'lab.request.start_verification', name: 'Start Verification', module: 'Lab', description: 'Promote request from Lab Queue to Verification stage' },
+  { id: 'p56', code: 'lab.request.override_assignment', name: 'Override Assignment', module: 'Lab', description: 'Accept or process requests assigned to other technicians' },
+  { id: 'p57', code: 'verification.view', name: 'View Verifications', module: 'Verification', description: 'Access verification queue and inspect item-level results' },
+  { id: 'p58', code: 'verification.create', name: 'Perform Verification', module: 'Verification', description: 'Record item identity, serial, quantity, and condition verification' },
+  { id: 'p59', code: 'verification.edit', name: 'Modify Verification', module: 'Verification', description: 'Update existing item verification records and discrepancy reasons' },
+  { id: 'p60', code: 'verification.complete', name: 'Complete Request Verification', module: 'Verification', description: 'Finalize request verification and enforce mandatory documents' },
+  { id: 'p61', code: 'verification.override', name: 'Override Verification', module: 'Verification', description: 'Authorize verification bypass or supervisor exception handling' },
+  { id: 'p62', code: 'document.view', name: 'View Proof Documents', module: 'Documents', description: 'View and download uploaded proof documents and certificates' },
+  { id: 'p63', code: 'document.upload', name: 'Upload Proof Documents', module: 'Documents', description: 'Upload proof documents to private Cloudflare R2 storage' },
+  { id: 'p64', code: 'document.delete', name: 'Delete Proof Documents', module: 'Documents', description: 'Remove proof documents and attachments where permitted' },
+  { id: 'p65', code: 'document.version', name: 'Upload Document Version', module: 'Documents', description: 'Upload subsequent revisions and version history for documents' },
 ];
 
 export const initialRoles: Role[] = [
@@ -315,9 +332,9 @@ export const initialRoles: Role[] = [
 export const initialRolePermissions: Record<string, string[]> = {
   'role-01': initialPermissions.map((p) => p.id), // Super Admin has all
   'role-02': initialPermissions.filter((p) => !p.code.startsWith('tenant.create')).map((p) => p.id),
-  'role-03': ['p01', 'p04', 'p06', 'p08', 'p09', 'p10', 'p12', 'p13', 'p14', 'p15', 'p16', 'p19', 'p21', 'p22', 'p23', 'p24', 'p28', 'p29', 'p30', 'p34', 'p35', 'p36', 'p40', 'p41', 'p42', 'p43', 'p44', 'p45', 'p46', 'p47', 'p48'],
-  'role-04': ['p01', 'p04', 'p08', 'p12', 'p14', 'p16', 'p19', 'p21', 'p22', 'p23', 'p24', 'p28', 'p29', 'p30', 'p34', 'p35', 'p36', 'p40', 'p41', 'p42', 'p43', 'p44', 'p45', 'p46', 'p47', 'p48'],
-  'role-05': ['p01', 'p04', 'p08', 'p12', 'p19', 'p21', 'p22', 'p34', 'p40', 'p46'],
+  'role-03': ['p01', 'p04', 'p06', 'p08', 'p09', 'p10', 'p12', 'p13', 'p14', 'p15', 'p16', 'p19', 'p21', 'p22', 'p23', 'p24', 'p28', 'p29', 'p30', 'p34', 'p35', 'p36', 'p40', 'p41', 'p42', 'p43', 'p44', 'p45', 'p46', 'p47', 'p48', 'p49', 'p50', 'p51', 'p52', 'p53', 'p54', 'p55', 'p56', 'p57', 'p62'],
+  'role-04': ['p01', 'p04', 'p08', 'p12', 'p14', 'p16', 'p19', 'p21', 'p22', 'p23', 'p24', 'p28', 'p29', 'p30', 'p34', 'p35', 'p36', 'p40', 'p41', 'p42', 'p43', 'p44', 'p45', 'p46', 'p47', 'p48', 'p49', 'p50', 'p51', 'p52', 'p53', 'p54', 'p55', 'p56', 'p57', 'p58', 'p60', 'p61', 'p62', 'p63', 'p65'],
+  'role-05': ['p01', 'p04', 'p08', 'p12', 'p19', 'p21', 'p22', 'p34', 'p40', 'p46', 'p49', 'p50', 'p53', 'p54', 'p55', 'p57', 'p58', 'p59', 'p60', 'p62', 'p63', 'p65'],
   'role-06': ['p01', 'p04', 'p08', 'p12', 'p22', 'p34', 'p40', 'p41', 'p42', 'p44', 'p46', 'p47', 'p48'],
   'role-07': ['p01', 'p04', 'p08', 'p12', 'p21', 'p22', 'p40'],
   'role-08': ['p01', 'p04', 'p08', 'p12', 'p22', 'p40'],
@@ -928,11 +945,11 @@ export const initialCalibrationRequests: CalibrationRequest[] = [
     collection_agent_id: 'usr-acme-collector',
     collection_date: '2026-09-14',
     priority: 'URGENT',
-    status: 'COLLECTED',
+    status: 'VERIFICATION',
     remarks: 'Emergency calibration for cleanroom production shutdown',
     created_by: 'usr-acme-collector',
     created_at: '2026-09-13T10:15:00Z',
-    updated_at: '2026-09-13T14:30:00Z',
+    updated_at: '2026-09-14T08:30:00Z',
     client: initialClients[1],
     collection_agent: demoProfiles.find((p) => p.id === 'usr-acme-collector') || null,
     created_by_user: demoProfiles.find((p) => p.id === 'usr-acme-collector') || null,
@@ -985,3 +1002,122 @@ export const initialCalibrationRequests: CalibrationRequest[] = [
     unavailable_items_count: 0,
   },
 ];
+
+export const initialLabAssignments: LabRequestAssignment[] = [
+  {
+    id: 'asgn-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    request_id: '77777777-2222-7777-a111-222222222222',
+    assigned_to: 'usr-acme-lab-tech',
+    assigned_by: 'usr-acme-admin',
+    assigned_at: '2026-09-13T15:05:00Z',
+    status: 'ACTIVE',
+    remarks: 'Assigned to David Chen for urgent cleanroom pressure sensor intake',
+    created_at: '2026-09-13T15:05:00Z',
+    updated_at: '2026-09-13T15:05:00Z',
+    assigned_to_user: {
+      id: 'usr-acme-lab-tech',
+      full_name: 'David Chen',
+      email: 'david.chen@acmecal.com',
+      role: 'lab_user',
+    },
+    assigned_by_user: {
+      id: 'usr-acme-admin',
+      full_name: 'Marcus Vance',
+      email: 'marcus.v@acmecal.com',
+      role: 'tenant_admin',
+    },
+  },
+];
+
+export const initialStatusHistory: RequestStatusHistory[] = [
+  {
+    id: 'sh-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    request_id: '77777777-2222-7777-a111-222222222222',
+    previous_status: 'CREATED',
+    new_status: 'COLLECTED',
+    changed_by: 'usr-acme-collector',
+    changed_at: '2026-09-13T14:30:00Z',
+    remarks: 'Field equipment picked up from client facility',
+    created_at: '2026-09-13T14:30:00Z',
+    changed_by_user: {
+      id: 'usr-acme-collector',
+      full_name: 'Sam Rodriguez',
+      email: 'sam.r@acmecal.com',
+      role: 'collection_agent',
+    },
+  },
+  {
+    id: 'sh-002',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    request_id: '77777777-2222-7777-a111-222222222222',
+    previous_status: 'COLLECTED',
+    new_status: 'LAB_QUEUE',
+    changed_by: 'usr-acme-admin',
+    changed_at: '2026-09-13T15:00:00Z',
+    remarks: 'Transferred to central laboratory queue',
+    created_at: '2026-09-13T15:00:00Z',
+    changed_by_user: {
+      id: 'usr-acme-admin',
+      full_name: 'Marcus Vance',
+      email: 'marcus.v@acmecal.com',
+      role: 'tenant_admin',
+    },
+  },
+];
+
+export const initialVerifications: Verification[] = [
+  {
+    id: 'ver-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    request_id: '77777777-2222-7777-a111-222222222222',
+    request_item_id: 'ri-003',
+    verified_by: 'usr-acme-lab',
+    verified_at: '2026-09-14T09:00:00Z',
+    item_match_status: 'MATCHED',
+    serial_match_status: 'MATCHED',
+    received_quantity: 1,
+    quantity_status: 'MATCHED',
+    condition_status: 'GOOD',
+    verification_result: 'VERIFIED',
+    discrepancy_reason: null,
+    remarks: 'Visual inspection passed; optical sensor and probe clean without scratches.',
+    created_at: '2026-09-14T09:00:00Z',
+    updated_at: '2026-09-14T09:00:00Z',
+    verified_by_user: {
+      id: 'usr-acme-lab',
+      full_name: 'David Chen',
+      email: 'david.c@acmecal.com',
+      role: 'lab_user',
+    },
+  },
+];
+
+export const initialDocuments: DocumentItem[] = [
+  {
+    id: 'doc-001',
+    tenant_id: '11111111-1111-4111-a111-111111111111',
+    request_id: '77777777-2222-7777-a111-222222222222',
+    item_id: '66666666-1111-6666-a111-111111111111',
+    request_item_id: 'ri-003',
+    document_type: 'COLLECTION_PROOF',
+    file_name: 'acme_pickup_receipt_002.pdf',
+    file_size: 245760,
+    mime_type: 'application/pdf',
+    storage_reference: 'tenants/11111111-1111-4111-a111-111111111111/requests/77777777-2222-7777-a111-222222222222/COLLECTION_PROOF_v1_acme_pickup_receipt_002.pdf',
+    mandatory: true,
+    uploaded_by: 'usr-acme-collector',
+    uploaded_at: '2026-09-13T14:35:00Z',
+    version: 1,
+    created_at: '2026-09-13T14:35:00Z',
+    updated_at: '2026-09-13T14:35:00Z',
+    uploaded_by_user: {
+      id: 'usr-acme-collector',
+      full_name: 'Sam Rodriguez',
+      email: 'sam.r@acmecal.com',
+      role: 'collection_agent',
+    },
+  },
+];
+

@@ -9,6 +9,8 @@ import { clientWorker } from '../domain-workers/client-worker';
 import { vendorWorker } from '../domain-workers/vendor-worker';
 import { itemWorker } from '../domain-workers/item-worker';
 import { requestWorker } from '../domain-workers/request-worker';
+import { labWorker } from '../domain-workers/lab-worker';
+import { verificationWorker } from '../domain-workers/verification-worker';
 import { StorageService } from '../shared/storage';
 
 const app = new Hono<{ Bindings: WorkerEnv; Variables: { user: AuthenticatedUser } }>();
@@ -26,8 +28,8 @@ app.use('*', cors({
 app.get('/', (c) => {
   return c.json({
     service: 'Calibration Commercial Module (CCM) API Gateway',
-    version: '6.0.0',
-    step: 'Step 6: Collection Agent & Calibration Requests',
+    version: '8.0.0',
+    step: 'Step 8: Item Verification + Proof + Mandatory Documents',
     status: 'online',
     architecture: 'Cloudflare Workers (Edge) + Supabase Multi-Tenant RLS + RBAC',
     endpoints: {
@@ -35,6 +37,29 @@ app.get('/', (c) => {
         login: 'POST /api/v1/auth/login',
         logout: 'POST /api/v1/auth/logout',
         session: 'GET /api/v1/auth/session',
+      },
+      labVerification: {
+        queue: 'GET /api/v1/lab/verification',
+        workspace: 'GET /api/v1/lab/verification/:requestId',
+        submit: 'POST /api/v1/verifications',
+        get: 'GET /api/v1/verifications/:id',
+        complete: 'POST /api/v1/lab/verification/:requestId/complete',
+        uploadUrl: 'POST /api/v1/documents/upload-url',
+        confirmDoc: 'POST /api/v1/documents',
+        listDocs: 'GET /api/v1/documents',
+        downloadUrl: 'GET /api/v1/documents/:id/download-url',
+      },
+      labQueue: {
+        queue: 'GET /api/v1/lab/queue',
+        details: 'GET /api/v1/lab/queue/:requestId',
+        accept: 'POST /api/v1/lab/queue/:requestId/accept',
+        assign: 'POST /api/v1/lab/queue/:requestId/assign',
+        reassign: 'POST /api/v1/lab/queue/:requestId/reassign',
+        startVerification: 'POST /api/v1/lab/queue/:requestId/start-verification',
+        hold: 'POST /api/v1/lab/queue/:requestId/hold',
+        users: 'GET /api/v1/lab/users',
+        assignments: 'GET /api/v1/lab/assignments/:requestId',
+        moveToQueue: 'POST /api/v1/calibration-requests/:id/lab-queue',
       },
       calibrationRequests: {
         list: 'GET /api/v1/calibration-requests',
@@ -118,6 +143,10 @@ function getDefaultPermissions(role: UserRole): string[] {
       'item.view', 'item.create', 'item.edit', 'item.delete', 'item.activate', 'item.deactivate',
       'request.view', 'request.create', 'request.edit', 'request.cancel', 'request.submit', 'request.override_availability',
       'collection.view', 'collection.create', 'collection.edit',
+      'lab.queue.view', 'lab.queue.accept', 'lab.queue.assign', 'lab.queue.reassign', 'lab.queue.hold',
+      'lab.request.view', 'lab.request.start_verification', 'lab.request.override_assignment',
+      'verification.view', 'verification.create', 'verification.edit', 'verification.complete', 'verification.override',
+      'document.view', 'document.upload', 'document.delete', 'document.version',
       'audit.view',
     ];
   }
@@ -128,9 +157,23 @@ function getDefaultPermissions(role: UserRole): string[] {
       'item.view',
       'request.view', 'request.create', 'request.edit', 'request.submit',
       'collection.view', 'collection.create', 'collection.edit',
+      'document.view', 'document.upload',
     ];
   }
-  if (role === 'org_admin') {
+  if (role === 'lab_user') {
+    return [
+      'tenant.view', 'organization.view', 'suborganization.view',
+      'client.view',
+      'item.view',
+      'request.view',
+      'collection.view',
+      'lab.queue.view', 'lab.queue.accept', 'lab.queue.hold',
+      'lab.request.view', 'lab.request.start_verification',
+      'verification.view', 'verification.create', 'verification.edit', 'verification.complete',
+      'document.view', 'document.upload', 'document.version',
+    ];
+  }
+  if (role === 'org_admin' || role === 'manager') {
     return [
       'organization.view', 'organization.edit',
       'suborganization.view', 'suborganization.create', 'suborganization.edit',
@@ -141,10 +184,14 @@ function getDefaultPermissions(role: UserRole): string[] {
       'item.view', 'item.create', 'item.edit', 'item.activate', 'item.deactivate',
       'request.view', 'request.create', 'request.edit', 'request.cancel', 'request.submit', 'request.override_availability',
       'collection.view', 'collection.create', 'collection.edit',
+      'lab.queue.view', 'lab.queue.accept', 'lab.queue.assign', 'lab.queue.reassign', 'lab.queue.hold',
+      'lab.request.view', 'lab.request.start_verification', 'lab.request.override_assignment',
+      'verification.view', 'verification.create', 'verification.complete', 'verification.override',
+      'document.view', 'document.upload', 'document.version',
       'audit.view',
     ];
   }
-  if (role === 'manager' || role === 'commercial_user' || role === 'lab_user') {
+  if (role === 'commercial_user') {
     return [
       'tenant.view', 'organization.view', 'suborganization.view',
       'user.view', 'role.view', 'permission.view',
@@ -243,6 +290,10 @@ app.route('/api/v1', vendorWorker);
 app.route('/api/v1', itemWorker);
 app.route('/api/v1', requestWorker);
 app.route('/api', requestWorker);
+app.route('/api/v1', labWorker);
+app.route('/api', labWorker);
+app.route('/api/v1', verificationWorker);
+app.route('/api', verificationWorker);
 
 // 5. Cloudflare R2 Private / Signed URL API
 app.post('/api/v1/storage/signed-url', async (c) => {
