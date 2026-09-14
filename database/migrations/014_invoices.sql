@@ -51,8 +51,8 @@ CREATE TABLE IF NOT EXISTS public.invoice_items (
     tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     invoice_id UUID NOT NULL REFERENCES public.invoices(id) ON DELETE CASCADE,
     
-    request_item_id UUID NOT NULL REFERENCES public.calibration_request_items(id) ON DELETE CASCADE,
-    item_id UUID NOT NULL REFERENCES public.items(id) ON DELETE CASCADE,
+    request_item_id UUID NOT NULL REFERENCES public.request_items(id) ON DELETE CASCADE,
+    item_id UUID NOT NULL REFERENCES public.item_masters(id) ON DELETE CASCADE,
     quotation_item_id UUID REFERENCES public.quotation_items(id) ON DELETE SET NULL,
     
     description TEXT,

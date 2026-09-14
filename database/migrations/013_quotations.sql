@@ -59,8 +59,8 @@ CREATE TABLE IF NOT EXISTS public.quotation_items (
     tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     quotation_id UUID NOT NULL REFERENCES public.quotations(id) ON DELETE CASCADE,
     
-    request_item_id UUID NOT NULL REFERENCES public.calibration_request_items(id) ON DELETE CASCADE,
-    item_id UUID NOT NULL REFERENCES public.items(id) ON DELETE CASCADE,
+    request_item_id UUID NOT NULL REFERENCES public.request_items(id) ON DELETE CASCADE,
+    item_id UUID NOT NULL REFERENCES public.item_masters(id) ON DELETE CASCADE,
     
     description TEXT,
     quantity INT NOT NULL DEFAULT 1,
