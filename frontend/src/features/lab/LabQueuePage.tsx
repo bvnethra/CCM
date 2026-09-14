@@ -76,7 +76,10 @@ export const LabQueuePage: React.FC<LabQueuePageProps> = ({ onOpenIntake, onNavi
   const canConfirmReceipt = hasPermission('lab.receipt.confirm') || currentUser?.role === 'lab_user' || currentUser?.role === 'tenant_admin';
 
   const loadQueueData = async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const [queueRes, usersRes, clientsRes] = await Promise.all([

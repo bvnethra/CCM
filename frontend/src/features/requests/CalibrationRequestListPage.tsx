@@ -88,7 +88,10 @@ export const CalibrationRequestListPage: React.FC<CalibrationRequestListPageProp
   const canCancel = hasPermission('request.cancel') || userRole === 'tenant_admin' || userRole === 'super_admin';
 
   const loadData = async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const [reqData, clientData, itemData] = await Promise.all([

@@ -48,7 +48,10 @@ export const CalibrationQueuePage: React.FC<CalibrationQueuePageProps> = ({ onOp
   const [startingItemId, setStartingItemId] = useState<string | null>(null);
 
   const fetchQueue = async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.getCalibrationQueue(activeTenant.id, {

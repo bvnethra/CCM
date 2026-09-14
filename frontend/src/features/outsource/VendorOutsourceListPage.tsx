@@ -38,7 +38,10 @@ export const VendorOutsourceListPage: React.FC<VendorOutsourceListPageProps> = (
   const [searchTerm, setSearchTerm] = useState('');
 
   const fetchOutsourceRequests = async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.getVendorOutsourceRequests(activeTenant.id, {

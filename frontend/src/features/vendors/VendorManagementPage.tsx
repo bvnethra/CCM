@@ -78,7 +78,10 @@ export const VendorManagementPage: React.FC = () => {
 
   // Load vendors
   const loadVendors = async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) {
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       const data = await apiClient.getVendors(activeTenant.id, {

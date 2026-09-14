@@ -31,7 +31,10 @@ export const ServiceRequestListPage: React.FC<ServiceRequestListPageProps> = ({ 
   const [searchTerm, setSearchTerm] = useState('');
 
   const fetchServiceRequests = async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.getServiceRequests(activeTenant.id, {

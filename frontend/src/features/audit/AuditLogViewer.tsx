@@ -21,7 +21,10 @@ export const AuditLogViewer: React.FC = () => {
   const pageSize = 10;
 
   const fetchLogs = async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const data = await apiClient.getAuditLogs(activeTenant.id, isSuperAdmin);

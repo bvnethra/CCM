@@ -38,7 +38,10 @@ export const QuotationListPage: React.FC<QuotationListPageProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
 
   const fetchQuotations = async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.getQuotations(activeTenant.id, {

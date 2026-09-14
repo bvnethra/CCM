@@ -33,7 +33,10 @@ export const DispatchListPage: React.FC<DispatchListPageProps> = ({
   const [search, setSearch] = useState('');
 
   const fetchDispatches = async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await api.getDispatches(activeTenant.id, {

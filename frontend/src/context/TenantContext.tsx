@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { Tenant, Organization, SubOrganization } from '../types';
 import { apiClient } from '../lib/api';
 import { useAuth } from './AuthContext';
+import { initialTenants } from '../lib/mockData';
 
 interface TenantContextType {
   tenants: Tenant[];
@@ -44,17 +45,18 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsLoading(true);
       setError(null);
 
-      const tenantList = await apiClient.getTenants(currentUser.role, currentUser.tenant_id);
+      const rawTenants = await apiClient.getTenants(currentUser.role, currentUser.tenant_id);
+      const tenantList = rawTenants && rawTenants.length > 0 ? rawTenants : initialTenants;
       setTenants(tenantList);
 
       // Determine active tenant:
       // If user is locked to a specific tenant (tenant_admin or below), they MUST be in their own tenant
       let currentActive: Tenant | null = null;
       if (!isSuperAdmin) {
-        currentActive = tenantList.find((t) => t.id === currentUser.tenant_id) || tenantList[0] || null;
+        currentActive = tenantList.find((t) => t.id === currentUser.tenant_id) || tenantList[0] || initialTenants[0];
       } else {
         // Super admin can maintain selection from state or pick first
-        currentActive = (activeTenant && tenantList.find((t) => t.id === activeTenant.id)) || tenantList[0] || null;
+        currentActive = (activeTenant && tenantList.find((t) => t.id === activeTenant.id)) || tenantList[0] || initialTenants[0];
       }
       setActiveTenant(currentActive);
 

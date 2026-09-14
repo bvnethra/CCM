@@ -31,7 +31,10 @@ export const VerificationQueuePage: React.FC<VerificationQueuePageProps> = ({ on
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
   const loadQueue = async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const data = await apiClient.getVerificationQueue(

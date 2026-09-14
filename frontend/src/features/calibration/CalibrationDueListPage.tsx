@@ -49,7 +49,10 @@ export const CalibrationDueListPage: React.FC<CalibrationDueListPageProps> = ({
   const [groupByClient, setGroupByClient] = useState(false);
 
   const fetchData = async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const clientsData = await api.getClients(activeTenant.id);

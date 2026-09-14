@@ -70,7 +70,10 @@ export const ItemManagementPage: React.FC = () => {
   const canDeactivate = hasPermission('item.deactivate');
 
   const fetchItems = async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) {
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       const data = await apiClient.getItems(activeTenant.id, {

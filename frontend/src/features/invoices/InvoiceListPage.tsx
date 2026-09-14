@@ -40,7 +40,10 @@ export const InvoiceListPage: React.FC<InvoiceListPageProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
 
   const fetchInvoices = async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.getInvoices(activeTenant.id, {

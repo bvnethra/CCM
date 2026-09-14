@@ -63,7 +63,10 @@ export const ClientManagementPage: React.FC = () => {
 
   // Load clients
   const loadClients = async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) {
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       const data = await apiClient.getClients(activeTenant.id, {

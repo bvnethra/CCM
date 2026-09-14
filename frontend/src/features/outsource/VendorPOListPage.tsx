@@ -36,7 +36,10 @@ export const VendorPOListPage: React.FC<VendorPOListPageProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
 
   const fetchPOs = async () => {
-    if (!activeTenant) return;
+    if (!activeTenant) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.getVendorPurchaseOrders(activeTenant.id, {
