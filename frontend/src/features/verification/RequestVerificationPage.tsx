@@ -280,9 +280,6 @@ export const RequestVerificationPage: React.FC<RequestVerificationPageProps> = (
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                Step 8
-              </span>
               <h1 className="text-xl font-bold text-slate-900 tracking-tight">
                 Item Verification Workspace — {request.request_number}
               </h1>
@@ -383,7 +380,7 @@ export const RequestVerificationPage: React.FC<RequestVerificationPageProps> = (
               </h3>
               <p className="text-xs mt-0.5 opacity-90">
                 {request.status === 'VERIFIED'
-                  ? 'All items have been verified and mandatory proof documents archived. Ready for Step 9 (Calibration Execution).'
+                  ? 'All items have been verified and mandatory proof documents archived. Ready for Calibration Execution.'
                   : canComplete
                   ? 'All items verified and mandatory proof documents are on file. Click Complete Verification below.'
                   : `Remaining checks: ${

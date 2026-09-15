@@ -420,7 +420,7 @@ export const InvoiceDetailsPage: React.FC<InvoiceDetailsPageProps> = ({
 
           <div className="p-2.5 rounded-lg border bg-slate-50 border-slate-200 text-slate-500">
             <span className="block font-bold">6. Future Dispatch</span>
-            <span className="text-[10px] opacity-75">Step 15</span>
+            <span className="text-[10px] opacity-75">Ready for Dispatch</span>
           </div>
         </div>
 

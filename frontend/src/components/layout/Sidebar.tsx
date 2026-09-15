@@ -57,19 +57,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'clients',
           label: 'Clients',
           icon: <Briefcase className="w-4 h-4" />,
-          badge: 'Step 3',
         },
         {
           id: 'vendors',
           label: 'Vendors',
           icon: <Factory className="w-4 h-4" />,
-          badge: 'Step 4',
         },
         {
           id: 'items',
           label: 'Items',
           icon: <Package className="w-4 h-4" />,
-          badge: 'Step 5',
         },
       ],
     },
@@ -80,85 +77,71 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'calibration-requests',
           label: 'Calibration Requests',
           icon: <ClipboardList className="w-4 h-4" />,
-          badge: 'Step 6',
         },
         {
           id: 'collection',
           label: 'Field Collection',
           icon: <Truck className="w-4 h-4" />,
-          badge: 'Step 19',
         },
         {
           id: 'lab-queue',
           label: 'Lab Queue & Intake',
           icon: <FlaskConical className="w-4 h-4" />,
-          badge: 'Step 7',
         },
         {
           id: 'lab-verification',
           label: 'Item Verification',
           icon: <FileCheck2 className="w-4 h-4" />,
-          badge: 'Step 8',
         },
         {
           id: 'lab-calibration',
           label: 'Calibration Operations',
           icon: <Award className="w-4 h-4" />,
-          badge: 'Step 9',
         },
         {
           id: 'calibration-due-list',
           label: 'Calibration Due List',
           icon: <Calendar className="w-4 h-4" />,
-          badge: 'Step 9',
         },
         {
           id: 'service-requests',
           label: 'Service & Approvals',
           icon: <Wrench className="w-4 h-4" />,
-          badge: 'Step 10',
         },
         {
           id: 'vendor-outsourcing',
           label: 'Vendor Outsourcing',
           icon: <Truck className="w-4 h-4" />,
-          badge: 'Step 11',
         },
         {
           id: 'vendor-purchase-orders',
           label: 'Vendor POs',
           icon: <FileCheck2 className="w-4 h-4" />,
-          badge: 'Step 11',
         },
         {
           id: 'quotations',
           label: 'Commercial Quotations',
           icon: <ScrollText className="w-4 h-4" />,
-          badge: 'Step 12',
         },
         {
           id: 'invoices',
           label: 'Commercial Invoices',
           icon: <FileCheck2 className="w-4 h-4" />,
-          badge: 'Step 13',
         },
         {
           id: 'dispatches',
           label: 'Dispatches & Delivery',
           icon: <Truck className="w-4 h-4" />,
-          badge: 'Step 15',
         },
         {
           id: 'operations-exceptions',
           label: 'Action & Exception Center',
           icon: <Wrench className="w-4 h-4" />,
-          badge: 'Step 16',
         },
         {
           id: 'reports',
           label: 'Executive Reports',
           icon: <ScrollText className="w-4 h-4" />,
-          badge: 'Step 16',
         },
       ],
     },
@@ -280,13 +263,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <span>{item.label}</span>
                     </div>
                     {item.badge ? (
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-[10px] border font-medium ${
-                          item.badge === 'Step 3'
-                            ? 'bg-blue-50 text-blue-700 border-blue-200'
-                            : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}
-                      >
+                      <span className="rounded px-1.5 py-0.5 text-[10px] border font-medium bg-slate-100 text-slate-600 border-slate-200">
                         {item.badge}
                       </span>
                     ) : (

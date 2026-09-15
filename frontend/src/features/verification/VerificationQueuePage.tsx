@@ -86,9 +86,6 @@ export const VerificationQueuePage: React.FC<VerificationQueuePageProps> = ({ on
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-              Step 8
-            </span>
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">
               Item Verification & Proof Documents
             </h1>
