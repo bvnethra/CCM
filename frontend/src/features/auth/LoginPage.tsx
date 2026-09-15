@@ -11,8 +11,8 @@ export interface LoginPageProps {
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const { loginWithCredentials, isLoading } = useAuth();
 
-  const [email, setEmail] = useState('elena.admin@ccm-platform.internal');
-  const [password, setPassword] = useState('Password123!');
+  const [email, setEmail] = useState('ccmsuperadmin@gmail.com');
+  const [password, setPassword] = useState('ccm1234');
   const [errorMessage, setErrorMessage] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -64,7 +64,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="elena.admin@ccm-platform.internal"
+              placeholder="ccmsuperadmin@gmail.com"
               leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
               required
             />
@@ -87,7 +87,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {/* Single Super Admin Credential Helper Badge */}
           <div className="mt-6 pt-4 border-t border-slate-100 text-center">
             <p className="text-[11px] text-slate-500 font-medium">
-              Default Super Admin: <span className="font-mono text-slate-700 font-semibold">elena.admin@ccm-platform.internal</span>
+              Super Admin Email: <span className="font-mono text-slate-700 font-semibold">ccmsuperadmin@gmail.com</span>
             </p>
           </div>
         </div>

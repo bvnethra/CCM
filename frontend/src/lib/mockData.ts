@@ -346,7 +346,7 @@ export const demoProfiles: UserProfile[] = [
     id: 'usr-super-admin',
     tenant_id: '11111111-1111-4111-a111-111111111111',
     full_name: 'Elena Rostova',
-    email: 'elena.admin@ccm-platform.internal',
+    email: 'ccmsuperadmin@gmail.com',
     phone: '+1 (555) 019-2831',
     role: 'super_admin',
     status: 'active',
