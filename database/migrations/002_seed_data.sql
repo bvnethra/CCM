@@ -10,39 +10,7 @@ VALUES
     ('33333333-3333-4333-a333-333333333333', 'Vortex Precision Testing', 'VORTEX-PT', 'inactive', '{"timezone": "Europe/London", "currency": "GBP", "complianceStandard": "UKAS LAB 12"}'::jsonb)
 ON CONFLICT (code) DO NOTHING;
 
--- 2. SEED ORGANIZATIONS (Tenant 1: Acme Calibration Labs)
-INSERT INTO public.organizations (id, tenant_id, name, code, status)
-VALUES
-    ('aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa', '11111111-1111-4111-a111-111111111111', 'Acme Aerospace Division', 'ACME-AERO', 'active'),
-    ('bbbbbbbb-1111-4bbb-bbbb-bbbbbbbbbbbb', '11111111-1111-4111-a111-111111111111', 'Acme Medical & Bio Calibration', 'ACME-MED', 'active')
-ON CONFLICT (tenant_id, code) DO NOTHING;
-
--- 2.1 SEED ORGANIZATIONS (Tenant 2: Apex Metrology Group)
-INSERT INTO public.organizations (id, tenant_id, name, code, status)
-VALUES
-    ('cccccccc-2222-4ccc-cccc-cccccccccccc', '22222222-2222-4222-a222-222222222222', 'Apex Industrial Metrology', 'APEX-IND', 'active'),
-    ('dddddddd-2222-4ddd-dddd-dddddddddddd', '22222222-2222-4222-a222-222222222222', 'Apex Cleanroom & Environmental', 'APEX-ENV', 'active')
-ON CONFLICT (tenant_id, code) DO NOTHING;
-
--- 3. SEED SUB-ORGANIZATIONS (Child of Acme Aerospace Division)
-INSERT INTO public.sub_organizations (id, tenant_id, organization_id, name, code, status)
-VALUES
-    ('e1111111-aaaa-4111-aaaa-111111111111', '11111111-1111-4111-a111-111111111111', 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa', 'Pressure & Vacuum Testing Lab', 'ACME-AERO-PVT', 'active'),
-    ('e1111112-aaaa-4111-aaaa-111111111112', '11111111-1111-4111-a111-111111111111', 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa', 'Avionics & RF Standard Lab', 'ACME-AERO-RF', 'active')
-ON CONFLICT (organization_id, code) DO NOTHING;
-
--- 3.1 SEED SUB-ORGANIZATIONS (Child of Acme Medical)
-INSERT INTO public.sub_organizations (id, tenant_id, organization_id, name, code, status)
-VALUES
-    ('e1111113-bbbb-4111-bbbb-111111111113', '11111111-1111-4111-a111-111111111111', 'bbbbbbbb-1111-4bbb-bbbb-bbbbbbbbbbbb', 'Biomedical Sensor Diagnostic Unit', 'ACME-MED-BSD', 'active')
-ON CONFLICT (organization_id, code) DO NOTHING;
-
--- 3.2 SEED SUB-ORGANIZATIONS (Child of Apex Industrial)
-INSERT INTO public.sub_organizations (id, tenant_id, organization_id, name, code, status)
-VALUES
-    ('e2222221-cccc-4222-cccc-222222222221', '22222222-2222-4222-a222-222222222222', 'cccccccc-2222-4ccc-cccc-cccccccccccc', 'Dimensional Metrology & CMM', 'APEX-IND-CMM', 'active'),
-    ('e2222222-cccc-4222-cccc-222222222222', '22222222-2222-4222-a222-222222222222', 'cccccccc-2222-4ccc-cccc-cccccccccccc', 'Torque & Force Standards Lab', 'APEX-IND-TF', 'active')
-ON CONFLICT (organization_id, code) DO NOTHING;
+-- 2. ORGANIZATIONS & SUB-ORGANIZATIONS (Cleared - No default records)
 
 -- 4. INITIAL AUDIT LOGS
 INSERT INTO public.audit_logs (id, tenant_id, user_id, action, resource_type, resource_id, new_values, ip_address)

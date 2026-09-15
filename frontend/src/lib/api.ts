@@ -67,8 +67,6 @@ import {
 } from '../types';
 import {
   initialTenants,
-  initialOrganizations,
-  initialSubOrganizations,
   initialAuditLogs,
   demoProfiles,
   initialRoles,
@@ -111,8 +109,8 @@ const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env ? import
 // In-Memory Reactive Multi-Tenant Store (Mirrors Supabase & PostgreSQL RLS)
 class MemoryStore {
   tenants: Tenant[] = [...initialTenants];
-  organizations: Organization[] = [...initialOrganizations];
-  subOrganizations: SubOrganization[] = [...initialSubOrganizations];
+  organizations: Organization[] = [];
+  subOrganizations: SubOrganization[] = [];
   clients: Client[] = [...initialClients];
   vendors: Vendor[] = [...initialVendors];
   items: ItemMaster[] = [...initialItems];
@@ -335,13 +333,16 @@ export const apiClient = {
   // ----------------------------------------------------
   async getOrganizations(tenantId: string): Promise<Organization[]> {
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
-        .from('organizations')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
-      if (error) throw new Error(error.message);
-      return data || [];
+      try {
+        const { data, error } = await supabase
+          .from('organizations')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false });
+        if (!error && data) return data;
+      } catch (err) {
+        console.warn('Supabase getOrganizations fallback:', err);
+      }
     }
 
     return memoryDb.organizations
@@ -459,11 +460,14 @@ export const apiClient = {
   // ----------------------------------------------------
   async getSubOrganizations(tenantId: string, organizationId?: string): Promise<SubOrganization[]> {
     if (isSupabaseConfigured && supabase) {
-      let query = supabase.from('sub_organizations').select('*, organization:organizations(id, name, code)').eq('tenant_id', tenantId);
-      if (organizationId) query = query.eq('organization_id', organizationId);
-      const { data, error } = await query;
-      if (error) throw new Error(error.message);
-      return data || [];
+      try {
+        let query = supabase.from('sub_organizations').select('*, organization:organizations(id, name, code)').eq('tenant_id', tenantId);
+        if (organizationId) query = query.eq('organization_id', organizationId);
+        const { data, error } = await query;
+        if (!error && data) return data;
+      } catch (err) {
+        console.warn('Supabase getSubOrganizations fallback:', err);
+      }
     }
 
     return memoryDb.subOrganizations
