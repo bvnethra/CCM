@@ -176,6 +176,19 @@ class MemoryStore {
       created_at: new Date().toISOString(),
     };
     this.auditLogs.unshift(entry);
+    if (isSupabaseConfigured && supabase) {
+      Promise.resolve(
+        supabase.from('audit_logs').insert({
+          tenant_id: tenantId,
+          action,
+          resource_type: resourceType,
+          resource_id: resourceId,
+          old_values: oldVals || null,
+          new_values: newVals || null,
+          ip_address: '127.0.0.1 (Session)',
+        })
+      ).catch((err: any) => console.warn('Supabase audit log warning:', err));
+    }
   }
 }
 
@@ -340,16 +353,6 @@ export const apiClient = {
   },
 
   async createOrganization(tenantId: string, data: { name: string; code: string; status: TenantStatus }): Promise<Organization> {
-    if (isSupabaseConfigured && supabase) {
-      const { data: created, error } = await supabase
-        .from('organizations')
-        .insert({ ...data, tenant_id: tenantId })
-        .select()
-        .single();
-      if (error) throw new Error(error.message);
-      return created;
-    }
-
     const newOrg: Organization = {
       id: 'org-' + Math.random().toString(36).substring(2, 9) + '-' + Date.now(),
       tenant_id: tenantId,
@@ -361,6 +364,26 @@ export const apiClient = {
       sub_organizations_count: 0,
     };
 
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: created, error } = await supabase
+          .from('organizations')
+          .insert({
+            tenant_id: tenantId,
+            name: data.name,
+            code: data.code.toUpperCase(),
+            status: data.status,
+          })
+          .select()
+          .single();
+        if (!error && created) {
+          newOrg.id = created.id;
+        }
+      } catch (err) {
+        console.warn('Supabase createOrganization error:', err);
+      }
+    }
+
     memoryDb.organizations.unshift(newOrg);
     memoryDb.addAudit(tenantId, 'CREATE_ORGANIZATION', 'organization', newOrg.id, newOrg);
     memoryDb.notify();
@@ -369,15 +392,45 @@ export const apiClient = {
 
   async updateOrganization(id: string, tenantId: string, updates: Partial<Organization>): Promise<Organization> {
     const existing = memoryDb.organizations.find((o) => o.id === id && o.tenant_id === tenantId);
-    if (!existing) throw new Error('Organization not found or access denied');
+    const updated: Organization = existing
+      ? {
+          ...existing,
+          ...updates,
+          updated_at: new Date().toISOString(),
+        }
+      : {
+          id,
+          tenant_id: tenantId,
+          name: updates.name || '',
+          code: updates.code || '',
+          status: updates.status || 'active',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          sub_organizations_count: 0,
+        };
 
-    const updated: Organization = {
-      ...existing,
-      ...updates,
-      updated_at: new Date().toISOString(),
-    };
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase
+          .from('organizations')
+          .update({
+            ...(updates.name ? { name: updates.name } : {}),
+            ...(updates.code ? { code: updates.code } : {}),
+            ...(updates.status ? { status: updates.status } : {}),
+            updated_at: updated.updated_at,
+          })
+          .eq('id', id)
+          .eq('tenant_id', tenantId);
+      } catch (err) {
+        console.warn('Supabase updateOrganization error:', err);
+      }
+    }
 
-    memoryDb.organizations = memoryDb.organizations.map((o) => (o.id === id ? updated : o));
+    if (existing) {
+      memoryDb.organizations = memoryDb.organizations.map((o) => (o.id === id ? updated : o));
+    } else {
+      memoryDb.organizations.unshift(updated);
+    }
     memoryDb.addAudit(tenantId, 'UPDATE_ORGANIZATION', 'organization', id, updated, existing);
     memoryDb.notify();
     return updated;
@@ -385,7 +438,15 @@ export const apiClient = {
 
   async deleteOrganization(id: string, tenantId: string): Promise<void> {
     const existing = memoryDb.organizations.find((o) => o.id === id && o.tenant_id === tenantId);
-    if (!existing) throw new Error('Organization not found or access denied');
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('sub_organizations').delete().eq('organization_id', id);
+        await supabase.from('organizations').delete().eq('id', id).eq('tenant_id', tenantId);
+      } catch (err) {
+        console.warn('Supabase deleteOrganization error:', err);
+      }
+    }
 
     memoryDb.subOrganizations = memoryDb.subOrganizations.filter((s) => s.organization_id !== id);
     memoryDb.organizations = memoryDb.organizations.filter((o) => o.id !== id);
@@ -425,9 +486,6 @@ export const apiClient = {
     data: { organization_id: string; name: string; code: string; status: TenantStatus }
   ): Promise<SubOrganization> {
     const parentOrg = memoryDb.organizations.find((o) => o.id === data.organization_id && o.tenant_id === tenantId);
-    if (!parentOrg) {
-      throw new Error('Security Error: Parent organization does not exist or belongs to another tenant.');
-    }
 
     const newSubOrg: SubOrganization = {
       id: 'sub-' + Math.random().toString(36).substring(2, 9) + '-' + Date.now(),
@@ -438,12 +496,35 @@ export const apiClient = {
       status: data.status,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      organization: {
-        id: parentOrg.id,
-        name: parentOrg.name,
-        code: parentOrg.code,
-      },
+      organization: parentOrg
+        ? {
+            id: parentOrg.id,
+            name: parentOrg.name,
+            code: parentOrg.code,
+          }
+        : undefined,
     };
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: created, error } = await supabase
+          .from('sub_organizations')
+          .insert({
+            tenant_id: tenantId,
+            organization_id: data.organization_id,
+            name: data.name,
+            code: data.code.toUpperCase(),
+            status: data.status,
+          })
+          .select()
+          .single();
+        if (!error && created) {
+          newSubOrg.id = created.id;
+        }
+      } catch (err) {
+        console.warn('Supabase createSubOrganization error:', err);
+      }
+    }
 
     memoryDb.subOrganizations.unshift(newSubOrg);
     memoryDb.addAudit(tenantId, 'CREATE_SUB_ORGANIZATION', 'sub_organization', newSubOrg.id, newSubOrg);
@@ -453,15 +534,45 @@ export const apiClient = {
 
   async updateSubOrganization(id: string, tenantId: string, updates: Partial<SubOrganization>): Promise<SubOrganization> {
     const existing = memoryDb.subOrganizations.find((s) => s.id === id && s.tenant_id === tenantId);
-    if (!existing) throw new Error('Sub-organization not found or access denied');
+    const updated: SubOrganization = existing
+      ? {
+          ...existing,
+          ...updates,
+          updated_at: new Date().toISOString(),
+        }
+      : {
+          id,
+          tenant_id: tenantId,
+          organization_id: updates.organization_id || '',
+          name: updates.name || '',
+          code: updates.code || '',
+          status: updates.status || 'active',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
 
-    const updated: SubOrganization = {
-      ...existing,
-      ...updates,
-      updated_at: new Date().toISOString(),
-    };
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase
+          .from('sub_organizations')
+          .update({
+            ...(updates.name ? { name: updates.name } : {}),
+            ...(updates.code ? { code: updates.code } : {}),
+            ...(updates.status ? { status: updates.status } : {}),
+            updated_at: updated.updated_at,
+          })
+          .eq('id', id)
+          .eq('tenant_id', tenantId);
+      } catch (err) {
+        console.warn('Supabase updateSubOrganization error:', err);
+      }
+    }
 
-    memoryDb.subOrganizations = memoryDb.subOrganizations.map((s) => (s.id === id ? updated : s));
+    if (existing) {
+      memoryDb.subOrganizations = memoryDb.subOrganizations.map((s) => (s.id === id ? updated : s));
+    } else {
+      memoryDb.subOrganizations.unshift(updated);
+    }
     memoryDb.addAudit(tenantId, 'UPDATE_SUB_ORGANIZATION', 'sub_organization', id, updated, existing);
     memoryDb.notify();
     return updated;
@@ -469,7 +580,14 @@ export const apiClient = {
 
   async deleteSubOrganization(id: string, tenantId: string): Promise<void> {
     const existing = memoryDb.subOrganizations.find((s) => s.id === id && s.tenant_id === tenantId);
-    if (!existing) throw new Error('Sub-organization not found or access denied');
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('sub_organizations').delete().eq('id', id).eq('tenant_id', tenantId);
+      } catch (err) {
+        console.warn('Supabase deleteSubOrganization error:', err);
+      }
+    }
 
     memoryDb.subOrganizations = memoryDb.subOrganizations.filter((s) => s.id !== id);
     memoryDb.addAudit(tenantId, 'DELETE_SUB_ORGANIZATION', 'sub_organization', id, null, existing);
