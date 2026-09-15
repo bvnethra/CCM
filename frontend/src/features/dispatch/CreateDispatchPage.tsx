@@ -166,7 +166,7 @@ export const CreateDispatchPage: React.FC<CreateDispatchPageProps> = ({
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Create New Dispatch Record</h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Step 15: Item selection, shipping address snapshot, and packing initialization
+            Item selection, shipping address snapshot, and packing initialization
           </p>
         </div>
       </div>

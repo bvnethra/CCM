@@ -418,7 +418,6 @@ export const LabQueuePage: React.FC<LabQueuePageProps> = ({ onOpenIntake, onNavi
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Lab Queue</h1>
-            <Badge variant="purple">Step 7</Badge>
           </div>
           <p className="text-sm text-slate-500 mt-1">
             Central intake queue for calibration instruments, technician task distribution, and verification handoff.

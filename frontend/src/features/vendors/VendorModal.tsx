@@ -485,7 +485,7 @@ export const VendorModal: React.FC<VendorModalProps> = ({
 
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <p className="text-[11px] text-slate-500">
-                Outsourced Purchase Orders (Step 8+) will reference these vendor capability domains for dispatching items beyond in-house laboratory testing scope.
+                Outsourced Purchase Orders will reference these vendor capability domains for dispatching items beyond in-house laboratory testing scope.
               </p>
             </div>
           </div>

@@ -396,7 +396,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
               />
 
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                💡 <strong>Commercial Module Integration:</strong> Future Calibration Request line items (Step 6+)
+                💡 <strong>Commercial Module Integration:</strong> Future Calibration Request line items
                 will populate commercial quotations with this standard fee before volume discount rules.
               </p>
             </div>

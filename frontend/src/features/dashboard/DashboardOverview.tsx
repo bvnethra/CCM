@@ -63,7 +63,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ onNavigate
           <div>
             <div className="flex items-center gap-2">
               <Badge variant="info" size="sm">
-                Step 1–16: Complete Module & Operations Hub Connected
+                Complete Module & Operations Hub Connected
               </Badge>
               <Badge variant="success" size="sm">
                 PostgreSQL RLS + Cloudflare R2

@@ -172,7 +172,7 @@ export const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-blue-600" />
             <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider">
-              Future Calibration Request Compatibility (Step 6+)
+              Future Calibration Request Compatibility
             </h4>
           </div>
           <p className="text-xs text-blue-700 leading-relaxed">

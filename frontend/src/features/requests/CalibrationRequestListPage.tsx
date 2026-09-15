@@ -425,7 +425,6 @@ export const CalibrationRequestListPage: React.FC<CalibrationRequestListPageProp
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight text-slate-900">Calibration Requests</h1>
-            <Badge variant="purple" size="sm">Step 6</Badge>
           </div>
           <p className="mt-1 text-xs text-slate-500">
             Intake logistics, instrument availability check, and calibration batch requests for {activeTenant?.name}.
@@ -439,7 +438,7 @@ export const CalibrationRequestListPage: React.FC<CalibrationRequestListPageProp
               onClick={onOpenLabQueue}
               leftIcon={<FlaskConical className="w-4 h-4 text-blue-600" />}
             >
-              Lab Queue (Step 7)
+              Lab Queue
             </Button>
           )}
           {canCreate && (
