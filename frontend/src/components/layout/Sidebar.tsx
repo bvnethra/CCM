@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   Building2,
   Network,
-  GitFork,
   ScrollText,
   ShieldCheck,
   ChevronRight,
@@ -47,6 +46,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'dashboard',
           label: 'Dashboard Overview',
           icon: <LayoutDashboard className="w-4 h-4" />,
+        },
+      ],
+    },
+    {
+      title: 'TENANT & ACCESS',
+      items: [
+        {
+          id: 'tenants',
+          label: 'Tenants',
+          icon: <Building2 className="w-4 h-4" />,
+          badge: isSuperAdmin ? 'Global' : 'Single',
+        },
+        {
+          id: 'organizations',
+          label: 'Organizations',
+          icon: <Network className="w-4 h-4" />,
+        },
+        {
+          id: 'users',
+          label: 'Users',
+          icon: <Users className="w-4 h-4" />,
+        },
+        {
+          id: 'roles',
+          label: 'Roles & Permissions',
+          icon: <KeyRound className="w-4 h-4" />,
         },
       ],
     },
@@ -142,37 +167,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'reports',
           label: 'Executive Reports',
           icon: <ScrollText className="w-4 h-4" />,
-        },
-      ],
-    },
-    {
-      title: 'Tenant & Access',
-      items: [
-        {
-          id: 'tenants',
-          label: 'Tenants',
-          icon: <Building2 className="w-4 h-4" />,
-          badge: isSuperAdmin ? 'Global' : 'Single',
-        },
-        {
-          id: 'organizations',
-          label: 'Organizations',
-          icon: <Network className="w-4 h-4" />,
-        },
-        {
-          id: 'sub-organizations',
-          label: 'Sub-Organizations',
-          icon: <GitFork className="w-4 h-4" />,
-        },
-        {
-          id: 'users',
-          label: 'Users',
-          icon: <Users className="w-4 h-4" />,
-        },
-        {
-          id: 'roles',
-          label: 'Roles & Permissions',
-          icon: <KeyRound className="w-4 h-4" />,
         },
       ],
     },
