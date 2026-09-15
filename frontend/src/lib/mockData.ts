@@ -42,122 +42,9 @@ export const initialTenants: Tenant[] = [
   },
 ];
 
-export const initialOrganizations: Organization[] = [
-  {
-    id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
-    tenant_id: '11111111-1111-4111-a111-111111111111',
-    name: 'Acme Aerospace Division',
-    code: 'ACME-AERO',
-    status: 'active',
-    created_at: '2025-01-16T09:00:00Z',
-    updated_at: '2025-01-16T09:00:00Z',
-  },
-  {
-    id: 'bbbbbbbb-1111-4bbb-bbbb-bbbbbbbbbbbb',
-    tenant_id: '11111111-1111-4111-a111-111111111111',
-    name: 'Acme Medical & Bio Calibration',
-    code: 'ACME-MED',
-    status: 'active',
-    created_at: '2025-01-20T11:00:00Z',
-    updated_at: '2025-01-20T11:00:00Z',
-  },
-  {
-    id: 'cccccccc-2222-4ccc-cccc-cccccccccccc',
-    tenant_id: '22222222-2222-4222-a222-222222222222',
-    name: 'Apex Industrial Metrology',
-    code: 'APEX-IND',
-    status: 'active',
-    created_at: '2025-02-12T14:00:00Z',
-    updated_at: '2025-02-12T14:00:00Z',
-  },
-  {
-    id: 'dddddddd-2222-4ddd-dddd-dddddddddddd',
-    tenant_id: '22222222-2222-4222-a222-222222222222',
-    name: 'Apex Cleanroom & Environmental',
-    code: 'APEX-ENV',
-    status: 'active',
-    created_at: '2025-02-15T15:30:00Z',
-    updated_at: '2025-02-15T15:30:00Z',
-  },
-];
+export const initialOrganizations: Organization[] = [];
 
-export const initialSubOrganizations: SubOrganization[] = [
-  {
-    id: 'sub11111-aaaa-4111-aaaa-111111111111',
-    tenant_id: '11111111-1111-4111-a111-111111111111',
-    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
-    name: 'Pressure & Vacuum Testing Lab',
-    code: 'ACME-AERO-PVT',
-    status: 'active',
-    created_at: '2025-01-17T10:00:00Z',
-    updated_at: '2025-01-17T10:00:00Z',
-    organization: {
-      id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
-      name: 'Acme Aerospace Division',
-      code: 'ACME-AERO',
-    },
-  },
-  {
-    id: 'sub11112-aaaa-4111-aaaa-111111111112',
-    tenant_id: '11111111-1111-4111-a111-111111111111',
-    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
-    name: 'Avionics & RF Standard Lab',
-    code: 'ACME-AERO-RF',
-    status: 'active',
-    created_at: '2025-01-18T14:20:00Z',
-    updated_at: '2025-01-18T14:20:00Z',
-    organization: {
-      id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
-      name: 'Acme Aerospace Division',
-      code: 'ACME-AERO',
-    },
-  },
-  {
-    id: 'sub11113-bbbb-4111-bbbb-111111111113',
-    tenant_id: '11111111-1111-4111-a111-111111111111',
-    organization_id: 'bbbbbbbb-1111-4bbb-bbbb-bbbbbbbbbbbb',
-    name: 'Biomedical Sensor Diagnostic Unit',
-    code: 'ACME-MED-BSD',
-    status: 'active',
-    created_at: '2025-01-22T09:15:00Z',
-    updated_at: '2025-01-22T09:15:00Z',
-    organization: {
-      id: 'bbbbbbbb-1111-4bbb-bbbb-bbbbbbbbbbbb',
-      name: 'Acme Medical & Bio Calibration',
-      code: 'ACME-MED',
-    },
-  },
-  {
-    id: 'sub22221-cccc-4222-cccc-222222222221',
-    tenant_id: '22222222-2222-4222-a222-222222222222',
-    organization_id: 'cccccccc-2222-4ccc-cccc-cccccccccccc',
-    name: 'Dimensional Metrology & CMM',
-    code: 'APEX-IND-CMM',
-    status: 'active',
-    created_at: '2025-02-13T11:00:00Z',
-    updated_at: '2025-02-13T11:00:00Z',
-    organization: {
-      id: 'cccccccc-2222-4ccc-cccc-cccccccccccc',
-      name: 'Apex Industrial Metrology',
-      code: 'APEX-IND',
-    },
-  },
-  {
-    id: 'sub22222-cccc-4222-cccc-222222222222',
-    tenant_id: '22222222-2222-4222-a222-222222222222',
-    organization_id: 'cccccccc-2222-4ccc-cccc-cccccccccccc',
-    name: 'Torque & Force Standards Lab',
-    code: 'APEX-IND-TF',
-    status: 'active',
-    created_at: '2025-02-14T16:45:00Z',
-    updated_at: '2025-02-14T16:45:00Z',
-    organization: {
-      id: 'cccccccc-2222-4ccc-cccc-cccccccccccc',
-      name: 'Apex Industrial Metrology',
-      code: 'APEX-IND',
-    },
-  },
-];
+export const initialSubOrganizations: SubOrganization[] = [];
 
 export const initialPermissions: Permission[] = [
   { id: 'p01', code: 'tenant.view', name: 'View Tenants', module: 'Tenants', description: 'View tenant details' },
@@ -407,8 +294,8 @@ export const initialClients: Client[] = [
   {
     id: '44444444-1111-4444-a111-111111111111',
     tenant_id: '11111111-1111-4111-a111-111111111111',
-    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
-    sub_org_id: 'bbbbbbbb-1111-4bbb-bbbb-bbbbbbbbbbbb',
+    organization_id: null,
+    sub_org_id: null,
     client_code: 'CLI-AERO-001',
     client_name: 'Aerospace Dynamics India Pvt Ltd',
     contact_person: 'Rohan Sharma',
@@ -433,8 +320,8 @@ export const initialClients: Client[] = [
   {
     id: '44444444-2222-4444-a111-222222222222',
     tenant_id: '11111111-1111-4111-a111-111111111111',
-    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
-    sub_org_id: 'bbbbbbbb-2222-4bbb-bbbb-bbbbbbbbbbbb',
+    organization_id: null,
+    sub_org_id: null,
     client_code: 'CLI-PHARMA-002',
     client_name: 'BioHealth Pharma Laboratories',
     contact_person: 'Dr. Ananya Reddy',
@@ -480,7 +367,7 @@ export const initialClients: Client[] = [
   {
     id: '44444444-4444-4444-a111-444444444444',
     tenant_id: '22222222-2222-4222-a222-222222222222',
-    organization_id: 'cccccccc-2222-4ccc-cccc-cccccccccccc',
+    organization_id: null,
     sub_org_id: null,
     client_code: 'CLI-DEF-101',
     client_name: 'Zenith Defense Systems Ltd',
@@ -509,8 +396,8 @@ export const initialVendors: Vendor[] = [
   {
     id: '55555555-1111-5555-a111-111111111111',
     tenant_id: '11111111-1111-4111-a111-111111111111',
-    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
-    sub_org_id: 'bbbbbbbb-1111-4bbb-bbbb-bbbbbbbbbbbb',
+    organization_id: null,
+    sub_org_id: null,
     vendor_code: 'VEN-NABL-001',
     vendor_name: 'National Standard Metrology Labs',
     contact_person: 'Kavita Sundaram',
@@ -535,7 +422,7 @@ export const initialVendors: Vendor[] = [
   {
     id: '55555555-2222-5555-a111-222222222222',
     tenant_id: '11111111-1111-4111-a111-111111111111',
-    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
+    organization_id: null,
     sub_org_id: null,
     vendor_code: 'VEN-OPTI-002',
     vendor_name: 'Spectra Optical Calibration Services',
@@ -582,7 +469,7 @@ export const initialVendors: Vendor[] = [
   {
     id: '55555555-4444-5555-a111-444444444444',
     tenant_id: '22222222-2222-4222-a222-222222222222',
-    organization_id: 'cccccccc-2222-4ccc-cccc-cccccccccccc',
+    organization_id: null,
     sub_org_id: null,
     vendor_code: 'VEN-AERO-201',
     vendor_name: 'Vanguard Precision Avionics Labs',
@@ -611,8 +498,8 @@ export const initialItems: ItemMaster[] = [
   {
     id: '66666666-1111-6666-a111-111111111111',
     tenant_id: '11111111-1111-4111-a111-111111111111',
-    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
-    sub_org_id: 'sub11111-aaaa-4111-aaaa-111111111111',
+    organization_id: null,
+    sub_org_id: null,
     item_code: 'ITM-DMM-001',
     item_name: '8.5 Digit Reference Multimeter',
     item_type: 'Master Standard',
@@ -641,8 +528,8 @@ export const initialItems: ItemMaster[] = [
   {
     id: '66666666-2222-6666-a111-222222222222',
     tenant_id: '11111111-1111-4111-a111-111111111111',
-    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
-    sub_org_id: 'sub11112-aaaa-4111-aaaa-111111111112',
+    organization_id: null,
+    sub_org_id: null,
     item_code: 'ITM-PRS-002',
     item_name: 'High Precision Pneumatic Pressure Controller',
     item_type: 'Calibrator',
@@ -691,8 +578,8 @@ export const initialItems: ItemMaster[] = [
   {
     id: '66666666-4444-6666-a222-444444444444',
     tenant_id: '22222222-2222-4222-a222-222222222222',
-    organization_id: 'cccccccc-2222-4ccc-cccc-cccccccccccc',
-    sub_org_id: 'sub22221-cccc-4222-cccc-222222222221',
+    organization_id: null,
+    sub_org_id: null,
     item_code: 'ITM-APX-101',
     item_name: 'Microwave Analog Signal Generator',
     item_type: 'Master Standard',
@@ -803,8 +690,8 @@ export const initialCalibrationRequests: CalibrationRequest[] = [
   {
     id: '77777777-1111-7777-a111-111111111111',
     tenant_id: '11111111-1111-4111-a111-111111111111',
-    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
-    sub_org_id: 'sub11111-aaaa-4111-aaaa-111111111111',
+    organization_id: null,
+    sub_org_id: null,
     request_number: 'CAL-2026-000001',
     client_id: '44444444-1111-4444-a111-111111111111',
     collection_agent_id: 'usr-acme-collector',
@@ -836,8 +723,8 @@ export const initialCalibrationRequests: CalibrationRequest[] = [
   {
     id: '77777777-2222-7777-a111-222222222222',
     tenant_id: '11111111-1111-4111-a111-111111111111',
-    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
-    sub_org_id: 'sub11111-aaaa-4111-aaaa-111111111111',
+    organization_id: null,
+    sub_org_id: null,
     request_number: 'CAL-2026-000002',
     client_id: '44444444-2222-4444-a111-222222222222',
     collection_agent_id: 'usr-acme-collector',
@@ -869,8 +756,8 @@ export const initialCalibrationRequests: CalibrationRequest[] = [
   {
     id: '77777777-3333-7777-a222-333333333333',
     tenant_id: '22222222-2222-4222-a222-222222222222',
-    organization_id: 'cccccccc-2222-4ccc-cccc-cccccccccccc',
-    sub_org_id: 'sub22221-cccc-4222-cccc-222222222221',
+    organization_id: null,
+    sub_org_id: null,
     request_number: 'CAL-2026-000101',
     client_id: '44444444-4444-4444-a222-111111111111',
     collection_agent_id: 'usr-apex-manager',
@@ -1318,7 +1205,7 @@ export const initialQuotations: Quotation[] = [
   {
     id: 'quo-001',
     tenant_id: '11111111-1111-4111-a111-111111111111',
-    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
+    organization_id: null,
     quotation_number: 'QUO-2026-000001',
     request_id: '77777777-1111-7777-a111-111111111111',
     client_id: '44444444-1111-4444-a111-111111111111',
@@ -1374,7 +1261,7 @@ export const initialInvoices: Invoice[] = [
   {
     id: 'inv-001',
     tenant_id: '11111111-1111-4111-a111-111111111111',
-    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
+    organization_id: null,
     invoice_number: 'INV-2026-000001',
     quotation_id: 'quo-001',
     request_id: '77777777-1111-7777-a111-111111111111',
@@ -1404,7 +1291,7 @@ export const initialInvoiceSignatureRequests: InvoiceSignatureRequest[] = [
   {
     id: 'sig-req-001',
     tenant_id: '11111111-1111-4111-a111-111111111111',
-    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
+    organization_id: null,
     invoice_id: 'inv-001',
     client_id: '44444444-1111-4444-a111-111111111111',
     request_reference: 'SIG-2026-000001',
@@ -1448,7 +1335,7 @@ export const initialDispatches: Dispatch[] = [
   {
     id: 'dsp-001',
     tenant_id: '11111111-1111-4111-a111-111111111111',
-    organization_id: 'aaaaaaaa-1111-4aaa-aaaa-aaaaaaaaaaaa',
+    organization_id: null,
     dispatch_number: 'DSP-2026-000001',
     request_id: '77777777-1111-7777-a111-111111111111',
     invoice_id: 'inv-001',
