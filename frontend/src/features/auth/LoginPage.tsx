@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { ShieldCheck, ArrowRight, Mail, Server, Database, KeyRound, Lock } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Mail, Server, Database, KeyRound, Lock, UserCheck } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 
@@ -9,9 +9,9 @@ export interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const { loginWithCredentials, loginAsDemoUser, demoUsers, isLoading } = useAuth();
+  const { loginWithCredentials, isLoading } = useAuth();
 
-  const [email, setEmail] = useState('marcus.v@acmecal.com');
+  const [email, setEmail] = useState('elena.admin@ccm-platform.internal');
   const [password, setPassword] = useState('Password123!');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -22,13 +22,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     if (success) {
       onLoginSuccess();
     } else {
-      setErrorMessage('Invalid credentials or authentication error');
+      setErrorMessage('Invalid Super Admin credentials or authentication error');
     }
-  };
-
-  const handleSelectDemo = (userId: string) => {
-    loginAsDemoUser(userId);
-    onLoginSuccess();
   };
 
   return (
@@ -43,13 +38,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             Calibration Commercial Module
           </h2>
           <p className="mt-1 text-xs text-slate-500">
-            Enterprise Multi-Tenant Metrology & Calibration Suite
+            Enterprise Multi-Tenant Metrology Platform
           </p>
         </div>
 
         {/* Login Box */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <h3 className="text-sm font-semibold text-slate-800 mb-4">Sign in to your account</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-slate-800">Super Admin Sign In</h3>
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 border border-blue-200">
+              <UserCheck className="w-3 h-3" />
+              Global Platform Portal
+            </span>
+          </div>
 
           {errorMessage && (
             <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
@@ -59,11 +60,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
-              label="Email Address"
+              label="Super Admin Email Address"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="operator@company.com"
+              placeholder="elena.admin@ccm-platform.internal"
               leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
               required
             />
@@ -79,43 +80,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             />
 
             <Button type="submit" className="w-full" isLoading={isLoading} rightIcon={<ArrowRight className="w-4 h-4" />}>
-              Sign In
+              Sign In as Super Admin
             </Button>
           </form>
 
-          {/* Quick Demo Personas */}
-          <div className="mt-6 pt-5 border-t border-slate-100">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Quick Demo Role Switcher
-              </span>
-              <span className="rounded bg-blue-50 px-2 py-0.5 text-[10px] text-blue-700 font-semibold border border-blue-200">
-                1-Click
-              </span>
-            </div>
-
-            <div className="space-y-2">
-              {demoUsers.map((u) => (
-                <button
-                  key={u.id}
-                  onClick={() => handleSelectDemo(u.id)}
-                  type="button"
-                  className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-left text-xs transition-all hover:border-blue-400 hover:bg-blue-50/30"
-                >
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-slate-800">{u.full_name}</span>
-                    <span className="text-[11px] text-slate-500">{u.email}</span>
-                  </div>
-                  <span className="rounded bg-white px-2 py-0.5 text-[10px] font-semibold text-blue-700 border border-slate-200">
-                    {u.role === 'super_admin'
-                      ? 'Super Admin'
-                      : u.role === 'collection_agent'
-                      ? 'Collection Agent'
-                      : u.role.replace('_', ' ')}
-                  </span>
-                </button>
-              ))}
-            </div>
+          {/* Single Super Admin Credential Helper Badge */}
+          <div className="mt-6 pt-4 border-t border-slate-100 text-center">
+            <p className="text-[11px] text-slate-500 font-medium">
+              Default Super Admin: <span className="font-mono text-slate-700 font-semibold">elena.admin@ccm-platform.internal</span>
+            </p>
           </div>
         </div>
 
