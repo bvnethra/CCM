@@ -15,6 +15,20 @@ export interface Tenant {
   name: string;
   code: string;
   status: TenantStatus;
+  tenant_type?: string;
+  registration_number?: string;
+  gst_number?: string;
+  tenant_email?: string;
+  tenant_phone?: string;
+  address_line_1?: string;
+  address_line_2?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postal_code?: string;
+  admin_name?: string;
+  admin_email?: string;
+  admin_password?: string;
   settings?: {
     timezone?: string;
     currency?: string;

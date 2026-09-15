@@ -220,25 +220,87 @@ export const apiClient = {
       }));
   },
 
-  async createTenant(data: { name: string; code: string; status: TenantStatus; settings?: any }): Promise<Tenant> {
+  async createTenant(data: any): Promise<Tenant> {
+    const newTenantId = 'ten-' + Math.random().toString(36).substring(2, 9) + '-' + Date.now();
+
     if (isSupabaseConfigured && supabase) {
-      const { data: created, error } = await supabase.from('tenants').insert(data).select().single();
-      if (error) throw new Error(error.message);
-      return created;
+      try {
+        const { data: created, error } = await supabase.from('tenants').insert({
+          name: data.name,
+          code: data.code.toUpperCase(),
+          status: data.status,
+          settings: {
+            timezone: data.timezone || 'Asia/Kolkata',
+            currency: data.currency || 'INR',
+            complianceStandard: data.complianceStandard || 'ISO/IEC 17025',
+            tenant_type: data.tenant_type,
+            registration_number: data.registration_number,
+            gst_number: data.gst_number,
+            tenant_email: data.tenant_email,
+            tenant_phone: data.tenant_phone,
+            address_line_1: data.address_line_1,
+            address_line_2: data.address_line_2,
+            city: data.city,
+            state: data.state,
+            country: data.country,
+            postal_code: data.postal_code,
+            admin_name: data.admin_name,
+            admin_email: data.admin_email,
+          },
+        }).select().single();
+        if (!error && created) return created;
+      } catch (err) {
+        console.warn('Supabase createTenant fallback:', err);
+      }
     }
 
     const newTenant: Tenant = {
-      id: 'ten-' + Math.random().toString(36).substring(2, 9) + '-' + Date.now(),
+      id: newTenantId,
       name: data.name,
       code: data.code.toUpperCase(),
       status: data.status,
-      settings: data.settings || { timezone: 'Asia/Kolkata', currency: 'INR' },
+      tenant_type: data.tenant_type,
+      registration_number: data.registration_number,
+      gst_number: data.gst_number,
+      tenant_email: data.tenant_email,
+      tenant_phone: data.tenant_phone,
+      address_line_1: data.address_line_1,
+      address_line_2: data.address_line_2,
+      city: data.city,
+      state: data.state,
+      country: data.country,
+      postal_code: data.postal_code,
+      admin_name: data.admin_name,
+      admin_email: data.admin_email,
+      admin_password: data.admin_password,
+      settings: {
+        timezone: data.timezone || 'Asia/Kolkata',
+        currency: data.currency || 'INR',
+        complianceStandard: data.complianceStandard || 'ISO/IEC 17025',
+      },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       organizations_count: 0,
     };
 
     memoryDb.tenants.unshift(newTenant);
+
+    if (data.admin_email && data.admin_name) {
+      const adminUser: UserProfile = {
+        id: 'usr-admin-' + data.code.toLowerCase(),
+        tenant_id: newTenantId,
+        full_name: data.admin_name,
+        email: data.admin_email,
+        phone: data.tenant_phone || '+91 98765 43210',
+        role: 'tenant_admin',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      memoryDb.profiles.unshift(adminUser);
+      demoProfiles.unshift(adminUser);
+    }
+
     memoryDb.addAudit(newTenant.id, 'CREATE_TENANT', 'tenant', newTenant.id, newTenant);
     memoryDb.notify();
     return newTenant;

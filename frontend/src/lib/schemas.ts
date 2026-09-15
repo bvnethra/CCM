@@ -13,13 +13,27 @@ export const userRoleEnum = z.enum([
 ]);
 
 export const tenantFormSchema = z.object({
-  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(255),
+  name: z.string().trim().min(2, 'Tenant name must be at least 2 characters').max(255),
   code: z
     .string()
     .trim()
     .min(2, 'Code must be at least 2 characters')
     .max(50)
     .regex(/^[A-Z0-9_-]+$/i, 'Code must contain only alphanumeric characters, dashes, or underscores'),
+  tenant_type: z.string().min(1, 'Tenant type is required'),
+  registration_number: z.string().trim().min(1, 'Registration number is required'),
+  gst_number: z.string().trim().optional().or(z.literal('')),
+  tenant_email: z.string().email('Invalid tenant email address'),
+  tenant_phone: z.string().trim().min(5, 'Tenant phone number is required'),
+  address_line_1: z.string().trim().min(3, 'Address Line 1 is required'),
+  address_line_2: z.string().trim().optional().or(z.literal('')),
+  city: z.string().trim().min(2, 'City is required'),
+  state: z.string().trim().min(2, 'State is required'),
+  country: z.string().trim().min(2, 'Country is required'),
+  postal_code: z.string().trim().min(3, 'Pincode is required'),
+  admin_name: z.string().trim().min(2, 'Admin name is required'),
+  admin_email: z.string().email('Invalid admin email address'),
+  admin_password: z.string().min(6, 'Password must be at least 6 characters'),
   status: z.enum(['active', 'inactive', 'suspended']),
   timezone: z.string().optional().default('Asia/Kolkata'),
   currency: z.string().optional().default('INR'),

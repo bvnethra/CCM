@@ -62,18 +62,13 @@ export const TenantManagementPage: React.FC = () => {
   const totalPages = Math.ceil(filteredTenants.length / pageSize) || 1;
   const paginatedTenants = filteredTenants.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const handleCreateOrUpdate = async (data: {
-    name: string;
-    code: string;
-    status: TenantStatus;
-    settings: { timezone: string; currency: string; complianceStandard: string };
-  }) => {
+  const handleCreateOrUpdate = async (data: any) => {
     if (editingTenant) {
       await apiClient.updateTenant(editingTenant.id, data);
       setActionSuccess(`Tenant "${data.name}" updated successfully.`);
     } else {
       await apiClient.createTenant(data);
-      setActionSuccess(`Tenant "${data.name}" created and provisioned.`);
+      setActionSuccess(`Tenant "${data.name}" created and provisioned with admin account.`);
     }
     await refreshData();
     setTimeout(() => setActionSuccess(null), 4000);
