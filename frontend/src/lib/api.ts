@@ -149,11 +149,6 @@ class MemoryStore {
   rolePermissions: Record<string, string[]> = { ...initialRolePermissions };
   userRoles: Record<string, string[]> = {
     'usr-super-admin': ['role-01'],
-    'usr-acme-admin': ['role-02'],
-    'usr-acme-lab-tech': ['role-05'],
-    'usr-acme-collector': ['role-06'],
-    'usr-apex-admin': ['role-02'],
-    'usr-apex-manager': ['role-04'],
   };
   listeners: Set<() => void> = new Set();
 
