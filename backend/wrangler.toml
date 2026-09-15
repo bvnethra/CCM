@@ -5,7 +5,8 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ENVIRONMENT = "development"
-SUPABASE_URL = "https://placeholder-project.supabase.co"
+SUPABASE_URL = "https://yhrjucxxwzvvwnqbmnem.supabase.co"
+SUPABASE_ANON_KEY = "sb_publishable_ldrKmnDCCh5EIJ-vTjuHqQ_hoj_P"
 
 # Cloudflare R2 Storage binding configuration
 [[r2_buckets]]
